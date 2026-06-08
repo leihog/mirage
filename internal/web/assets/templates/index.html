@@ -1,0 +1,9 @@
+{{define "content"}}
+<main class="layout">
+  {{template "messageList" .}}
+  <section class="detail placeholder">
+    <h2>Waiting for mail</h2>
+    <p>Send Mailgun API requests to <code>POST /v3/{domain}/messages</code>.</p>
+  </section>
+</main>
+{{end}}

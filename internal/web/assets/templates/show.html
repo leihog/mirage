@@ -1,0 +1,55 @@
+{{define "content"}}
+<main class="layout">
+  {{template "messageList" .}}
+  <article class="detail">
+    <header class="meta-card">
+      <div class="detail-actions">
+        {{with unsubscribe .Selected}}
+        <form class="unsubscribe-form" method="post" action="/messages/{{$.Selected.ID}}/unsubscribe">
+          <button class="secondary-button" type="submit">Unsubscribe</button>
+        </form>
+        {{end}}
+        <form class="delete-form" method="post" action="/messages/{{.Selected.ID}}/delete">
+          <button class="icon-button danger" type="submit" title="Delete message" aria-label="Delete message">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>
+          </button>
+        </form>
+      </div>
+      <dl>
+        <div><dt>From</dt><dd>{{.Selected.From}}</dd></div>
+        <div><dt>To</dt><dd>{{join .Selected.To}}</dd></div>
+        {{if .Selected.Cc}}<div><dt>Cc</dt><dd>{{join .Selected.Cc}}</dd></div>{{end}}
+        <div><dt>Subject</dt><dd><strong>{{if .Selected.Subject}}{{.Selected.Subject}}{{else}}(no subject){{end}}</strong></dd></div>
+        <div><dt>Date</dt><dd>{{dateLine .Selected}} <span class="size">({{messageSize .Selected}})</span></dd></div>
+        <div><dt>Provider</dt><dd>{{.Selected.Provider}} / {{.Selected.Domain}}</dd></div>
+      </dl>
+    </header>
+    <nav class="tabs" aria-label="Message views">
+      <button class="tab active" type="button" data-tab="html">HTML</button>
+      <button class="tab" type="button" data-tab="source">HTML Source</button>
+      <button class="tab" type="button" data-tab="text">Text</button>
+      <button class="tab" type="button" data-tab="headers">Headers</button>
+      <button class="tab" type="button" data-tab="raw">Raw</button>
+    </nav>
+    <section id="tab-html" class="panel preview tab-panel active">
+      <iframe title="Email preview" src="/messages/{{.Selected.ID}}/html" sandbox=""></iframe>
+    </section>
+    <section id="tab-source" class="panel code-panel tab-panel">
+      <pre class="html-source">{{htmlSource .Selected}}</pre>
+    </section>
+    <section id="tab-text" class="panel code-panel tab-panel">
+      <pre>{{.Selected.Text}}</pre>
+    </section>
+    <section id="tab-headers" class="panel headers-panel tab-panel">
+      {{range headerRows .Selected}}<div><strong>{{.Key}}</strong><span>{{.Value}}</span></div>{{end}}
+      {{if .Selected.Attachments}}
+      <h3>Attachments</h3>
+      {{range .Selected.Attachments}}<div><strong>{{.Name}}</strong><span>{{.ContentType}} {{.Size}} bytes</span></div>{{end}}
+      {{end}}
+    </section>
+    <section id="tab-raw" class="panel code-panel tab-panel">
+      <pre>{{rawMessage .Selected}}</pre>
+    </section>
+  </article>
+</main>
+{{end}}

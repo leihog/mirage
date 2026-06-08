@@ -1,0 +1,89 @@
+{{define "layout"}}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mirage</title>
+  <script src="/assets/theme.js"></script>
+  <link rel="stylesheet" href="/assets/app.css">
+  <script defer src="/assets/app.js"></script>
+</head>
+<body>
+  <header class="hero-bar">
+    <h1>Mirage</h1>
+    <button class="icon-button" type="button" data-settings-open title="Settings" aria-label="Settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5ZM19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.2.6.78 1 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1Z"/></svg>
+    </button>
+  </header>
+
+  {{template "content" .}}
+
+  <dialog class="settings-modal" aria-labelledby="settings-title">
+    <header>
+      <h2 id="settings-title">Settings</h2>
+      <button class="icon-button" type="button" data-settings-close title="Close settings" aria-label="Close settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </header>
+    <section class="settings-body">
+      <fieldset class="setting-group">
+        <legend>Appearance</legend>
+        <div class="theme-options" role="radiogroup" aria-label="Appearance">
+          <label><input type="radio" name="theme" value="light"> Light</label>
+          <label><input type="radio" name="theme" value="dark"> Dark</label>
+          <label><input type="radio" name="theme" value="auto"> System</label>
+        </div>
+      </fieldset>
+    </section>
+  </dialog>
+
+  <dialog class="unsubscribe-modal" aria-labelledby="unsubscribe-title">
+    <header>
+      <h2 id="unsubscribe-title">Unsubscribe</h2>
+    </header>
+    <section class="unsubscribe-body">
+      <dl class="result-list">
+        <div><dt>URL</dt><dd data-unsubscribe-url></dd></div>
+        <div><dt>Result</dt><dd data-unsubscribe-result></dd></div>
+        <div><dt>Status</dt><dd data-unsubscribe-status></dd></div>
+      </dl>
+      <pre class="json-result" data-unsubscribe-json hidden></pre>
+    </section>
+    <footer>
+      <button class="secondary-button" type="button" data-unsubscribe-ok>OK</button>
+    </footer>
+  </dialog>
+</body>
+</html>
+{{end}}
+
+{{define "messageList"}}
+<section class="list">
+  <div class="inbox-header">
+    <div>
+      <h2>Inbox</h2>
+      <p class="inbox-count">{{mailboxLine .Messages}}</p>
+    </div>
+    <form method="post" action="/messages/clear"><button type="submit">Clear</button></form>
+  </div>
+  {{if .Messages}}
+    {{range .Messages}}
+      <div class="message-row">
+        <a class="message {{if eq .ID $.SelectedID}}active{{end}} {{if not .Viewed}}unread{{end}}" data-id="{{.ID}}" href="/messages/{{.ID}}">
+          <span class="subject">{{if .Subject}}{{.Subject}}{{else}}(no subject){{end}}</span>
+          <span class="meta">{{.From}} -> {{join .To}}</span>
+          <time>{{.CreatedAt.Format "15:04:05"}}</time>
+        </a>
+        <form class="delete-form list-delete" method="post" action="/messages/{{.ID}}/delete">
+          <button class="icon-button danger" type="submit" title="Delete message" aria-label="Delete message">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>
+          </button>
+        </form>
+      </div>
+    {{end}}
+  {{else}}
+    <div class="empty">No captured emails yet.</div>
+  {{end}}
+</section>
+{{end}}
