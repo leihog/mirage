@@ -18,6 +18,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const dateFormatSelect = document.querySelector("[data-date-format-select]");
   const previewCanvas = document.querySelector("[data-preview-canvas]");
   const previewButtons = Array.from(document.querySelectorAll("[data-preview-mode]"));
+  const previewWidthControl = document.querySelector("[data-preview-width]");
+  const tabDownload = document.querySelector("[data-tab-download]");
 
   function themeChoice() {
     const stored = localStorage.getItem(themeKey);
@@ -277,14 +279,47 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  function updateTabActions(tabName) {
+    if (previewWidthControl) previewWidthControl.hidden = tabName !== "html";
+    if (!tabDownload) return;
+
+    const downloads = {
+      source: {
+        part: "html",
+        filename: "message-" + currentID + ".html",
+        label: "Download HTML source",
+      },
+      text: {
+        part: "text",
+        filename: "message-" + currentID + ".txt",
+        label: "Download text",
+      },
+      raw: {
+        part: "raw",
+        filename: "message-" + currentID + ".eml",
+        label: "Download raw email",
+      },
+    };
+    const download = downloads[tabName];
+    tabDownload.hidden = !download;
+    if (!download) return;
+
+    tabDownload.href = "/api/v1/message/" + encodeURIComponent(currentID) + "/body/" + download.part + "?download=1";
+    tabDownload.download = download.filename;
+    tabDownload.title = download.label;
+    tabDownload.setAttribute("aria-label", download.label);
+  }
+
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.addEventListener("click", () => {
       document.querySelectorAll(".tab").forEach((item) => item.classList.remove("active"));
       document.querySelectorAll(".tab-panel").forEach((panel) => panel.classList.remove("active"));
       tab.classList.add("active");
       document.getElementById("tab-" + tab.dataset.tab)?.classList.add("active");
+      updateTabActions(tab.dataset.tab || "");
     });
   });
+  updateTabActions(document.querySelector(".tab.active")?.dataset.tab || "");
 
   if (!list) return;
 

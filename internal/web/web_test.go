@@ -572,3 +572,33 @@ func TestAPIV1MessageBodySupportsNativeAndJSONFormats(t *testing.T) {
 		t.Fatal("body API should not mark viewed by default")
 	}
 }
+
+func TestAPIV1MessageBodyDownloadUsesAttachmentFilenames(t *testing.T) {
+	store := mailbox.NewStore()
+	msg := store.Add(mailbox.Message{
+		Subject: "body",
+		From:    "sender@example.com",
+		To:      []string{"recipient@example.com"},
+		Text:    "Plain body",
+	})
+
+	mux := http.NewServeMux()
+	Register(mux, store)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/message/"+msg.ID+"/body/raw?download=1", nil)
+	mux.ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", res.Code, res.Body.String())
+	}
+	if contentType := res.Header().Get("Content-Type"); contentType != "message/rfc822" {
+		t.Fatalf("unexpected content type: %s", contentType)
+	}
+	wantDisposition := `attachment; filename="message-` + msg.ID + `.eml"`
+	if disposition := res.Header().Get("Content-Disposition"); disposition != wantDisposition {
+		t.Fatalf("unexpected content disposition: %s", disposition)
+	}
+	if !strings.Contains(res.Body.String(), "Content-Type: text/plain; charset=utf-8") {
+		t.Fatalf("expected generated raw message, got %q", res.Body.String())
+	}
+}

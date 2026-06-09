@@ -150,10 +150,12 @@ dd { margin: 0; overflow-wrap: anywhere; }
 .tab { border: 0; border-bottom: 2px solid transparent; background: transparent; padding: 12px 16px 10px; color: var(--text); white-space: nowrap; }
 .tab:hover, .tab:focus-visible { color: var(--accent-strong); }
 .tab.active { color: var(--accent-strong); border-bottom-color: var(--accent); }
+.tab-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex: 0 0 auto; padding-left: 12px; }
+.tab-actions [hidden] { display: none; }
+.tab-download { color: var(--text-soft); }
 .panel { display: none; background: var(--surface); min-height: calc(100vh - 164px); }
 .panel.active { display: block; }
 .preview { background: var(--preview-canvas); min-height: calc(100vh - 164px); padding: 0; }
-.tabs .segmented-control { margin-left: auto; flex: 0 0 auto; }
 .segmented-control { display: inline-grid; grid-template-columns: repeat(3, 34px); border: 1px solid var(--border-control); border-radius: 6px; overflow: hidden; background: var(--surface); }
 .segmented-control button { display: grid; place-items: center; min-height: 30px; padding: 0; border: 0; border-left: 1px solid var(--border-control); background: transparent; color: var(--text-soft); }
 .segmented-control button:first-child { border-left: 0; }

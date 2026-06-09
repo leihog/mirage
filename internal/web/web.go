@@ -298,6 +298,9 @@ func (a *app) apiV1MessageBodyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", contentType)
+	if r.URL.Query().Get("download") == "1" {
+		w.Header().Set("Content-Disposition", `attachment; filename="`+messageBodyFilename(msg, part)+`"`)
+	}
 	_, _ = w.Write([]byte(body))
 }
 
@@ -620,10 +623,35 @@ func messageBody(msg mailbox.Message, part string) (string, string, bool) {
 		if strings.TrimSpace(raw) == "" {
 			return "", "", false
 		}
-		return raw, "text/plain; charset=utf-8", true
+		return raw, "message/rfc822", true
 	default:
 		return "", "", false
 	}
+}
+
+func messageBodyFilename(msg mailbox.Message, part string) string {
+	extension := map[string]string{
+		"html": "html",
+		"text": "txt",
+		"raw":  "eml",
+	}[part]
+	if extension == "" {
+		extension = "txt"
+	}
+	return "message-" + safeFilenamePart(msg.ID) + "." + extension
+}
+
+func safeFilenamePart(value string) string {
+	var out strings.Builder
+	for _, ch := range value {
+		if ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9' || ch == '-' || ch == '_' {
+			out.WriteRune(ch)
+		}
+	}
+	if out.Len() == 0 {
+		return "email"
+	}
+	return out.String()
 }
 
 func pagination(r *http.Request) (int, int, error) {

@@ -36,16 +36,21 @@
       <button class="tab" type="button" data-tab="text">Text</button>
       <button class="tab" type="button" data-tab="headers">Headers</button>
       <button class="tab" type="button" data-tab="raw">Raw</button>
-      <div class="segmented-control" data-preview-width aria-label="Preview width">
-        <button type="button" data-preview-mode="mobile" title="Mobile width" aria-label="Mobile width">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2.75h8A2.25 2.25 0 0 1 18.25 5v14A2.25 2.25 0 0 1 16 21.25H8A2.25 2.25 0 0 1 5.75 19V5A2.25 2.25 0 0 1 8 2.75ZM10 18.25h4"/></svg>
-        </button>
-        <button type="button" data-preview-mode="desktop" title="Desktop width" aria-label="Desktop width">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.75h16A1.25 1.25 0 0 1 21.25 7v9A1.25 1.25 0 0 1 20 17.25H4A1.25 1.25 0 0 1 2.75 16V7A1.25 1.25 0 0 1 4 5.75ZM9 21.25h6M12 17.25v4"/></svg>
-        </button>
-        <button type="button" data-preview-mode="full" title="Full width" aria-label="Full width">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3.75H3.75V8M16 3.75h4.25V8M20.25 16v4.25H16M8 20.25H3.75V16M3.75 3.75l6 6M20.25 3.75l-6 6M20.25 20.25l-6-6M3.75 20.25l6-6"/></svg>
-        </button>
+      <div class="tab-actions">
+        <a class="icon-button tab-download" href="/api/v1/message/{{.Selected.ID}}/body/html?download=1" download="message-{{.Selected.ID}}.html" data-tab-download hidden title="Download HTML source" aria-label="Download HTML source">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.75v11M7.25 10.25 12 15l4.75-4.75M4.75 20.25h14.5"/></svg>
+        </a>
+        <div class="segmented-control" data-preview-width aria-label="Preview width">
+          <button type="button" data-preview-mode="mobile" title="Mobile width" aria-label="Mobile width">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2.75h8A2.25 2.25 0 0 1 18.25 5v14A2.25 2.25 0 0 1 16 21.25H8A2.25 2.25 0 0 1 5.75 19V5A2.25 2.25 0 0 1 8 2.75ZM10 18.25h4"/></svg>
+          </button>
+          <button type="button" data-preview-mode="desktop" title="Desktop width" aria-label="Desktop width">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.75h16A1.25 1.25 0 0 1 21.25 7v9A1.25 1.25 0 0 1 20 17.25H4A1.25 1.25 0 0 1 2.75 16V7A1.25 1.25 0 0 1 4 5.75ZM9 21.25h6M12 17.25v4"/></svg>
+          </button>
+          <button type="button" data-preview-mode="full" title="Full width" aria-label="Full width">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3.75H3.75V8M16 3.75h4.25V8M20.25 16v4.25H16M8 20.25H3.75V16M3.75 3.75l6 6M20.25 3.75l-6 6M20.25 20.25l-6-6M3.75 20.25l6-6"/></svg>
+          </button>
+        </div>
       </div>
     </nav>
     <section id="tab-html" class="panel preview tab-panel active">
