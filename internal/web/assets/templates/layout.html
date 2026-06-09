@@ -11,7 +11,9 @@
 </head>
 <body>
   <header class="hero-bar">
-    <h1>Mirage</h1>
+    <a class="brand-link" href="/" aria-label="Mirage inbox">
+      <img src="/assets/lockup-green.svg" alt="Mirage">
+    </a>
     <button class="icon-button" type="button" data-settings-open title="Settings" aria-label="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5ZM19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.2.6.78 1 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1Z"/></svg>
     </button>
@@ -34,6 +36,28 @@
           <label><input type="radio" name="theme" value="dark"> Dark</label>
           <label><input type="radio" name="theme" value="auto"> System</label>
         </div>
+      </fieldset>
+      <fieldset class="setting-group">
+        <legend>Display timezone</legend>
+        <select class="settings-select timezone-select" name="timezone" data-timezone-select aria-label="Display timezone">
+          <option value="local">Local browser time</option>
+          <option value="UTC">UTC</option>
+        </select>
+      </fieldset>
+      <fieldset class="setting-group">
+        <legend>Time format</legend>
+        <label class="setting-toggle">
+          <input type="checkbox" data-time-24-toggle>
+          <span>Use 24-hour time</span>
+        </label>
+      </fieldset>
+      <fieldset class="setting-group">
+        <legend>Inbox date format</legend>
+        <select class="settings-select" name="date-format" data-date-format-select aria-label="Inbox date format">
+          <option value="iso">ISO 8601 (YYYY-MM-DD)</option>
+          <option value="eu">DD/MM/YYYY</option>
+          <option value="us">MM/DD/YYYY</option>
+        </select>
       </fieldset>
     </section>
   </dialog>
@@ -65,21 +89,33 @@
       <h2>Inbox</h2>
       <p class="inbox-count">{{mailboxLine .Messages}}</p>
     </div>
-    <form method="post" action="/messages/clear"><button type="submit">Clear</button></form>
+    <form class="clear-form" method="post" action="/messages/clear">
+      <button class="clear-all-button" type="button" data-clear-open title="Empty inbox" aria-label="Empty inbox">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>
+        <span>Clear all</span>
+      </button>
+      <div class="clear-confirm" data-clear-confirm hidden>
+        <p>Empty inbox?</p>
+        <div>
+          <button class="icon-button danger" type="submit" title="Confirm delete all" aria-label="Confirm delete all">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
+          </button>
+          <button class="icon-button" type="button" data-clear-cancel title="Cancel" aria-label="Cancel">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+    </form>
   </div>
   {{if .Messages}}
     {{range .Messages}}
       <div class="message-row">
         <a class="message {{if eq .ID $.SelectedID}}active{{end}} {{if not .Viewed}}unread{{end}}" data-id="{{.ID}}" href="/messages/{{.ID}}">
+          <span class="sender-name">{{senderName .From}}</span>
+          <time datetime="{{utcTime .CreatedAt}}" data-timestamp="{{utcTime .CreatedAt}}" data-timestamp-format="inbox">{{utcClock .CreatedAt}}</time>
+          <span class="to-line">To: {{join .To}}</span>
           <span class="subject">{{if .Subject}}{{.Subject}}{{else}}(no subject){{end}}</span>
-          <span class="meta">{{.From}} -> {{join .To}}</span>
-          <time>{{.CreatedAt.Format "15:04:05"}}</time>
         </a>
-        <form class="delete-form list-delete" method="post" action="/messages/{{.ID}}/delete">
-          <button class="icon-button danger" type="submit" title="Delete message" aria-label="Delete message">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>
-          </button>
-        </form>
       </div>
     {{end}}
   {{else}}

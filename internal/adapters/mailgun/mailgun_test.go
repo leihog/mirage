@@ -56,6 +56,40 @@ func TestMessagesEndpointCapturesFormMessage(t *testing.T) {
 	}
 }
 
+func TestMessagesEndpointStripsGeneratedHeaders(t *testing.T) {
+	store := mailbox.NewStore()
+	mux := http.NewServeMux()
+	Register(mux, store)
+
+	form := url.Values{}
+	form.Set("from", "Sender <sender@example.com>")
+	form.Add("to", "User <user@example.com>")
+	form.Set("subject", "Hello")
+	form.Set("h:Date", "Tue, 09 Jun 2026 08:15:00 +0000")
+	form.Set("h:Message-ID", "<client-supplied@example.com>")
+	form.Set("h:X-Test", "kept")
+
+	req := httptest.NewRequest(http.MethodPost, "/v3/example.com/messages", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	res := httptest.NewRecorder()
+
+	mux.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", res.Code, res.Body.String())
+	}
+	msg := store.List()[0]
+	if _, ok := msg.Headers["Date"]; ok {
+		t.Fatalf("expected Date header to be stripped: %#v", msg.Headers)
+	}
+	if _, ok := msg.Headers["Message-ID"]; ok {
+		t.Fatalf("expected Message-ID header to be stripped: %#v", msg.Headers)
+	}
+	if msg.Headers["X-Test"] != "kept" {
+		t.Fatalf("expected custom header to remain: %#v", msg.Headers)
+	}
+}
+
 func TestMIMEEndpointCapturesUploadedMessage(t *testing.T) {
 	store := mailbox.NewStore()
 	mux := http.NewServeMux()
@@ -91,6 +125,49 @@ func TestMIMEEndpointCapturesUploadedMessage(t *testing.T) {
 	msg := store.List()[0]
 	if msg.Subject != "MIME hello" || msg.HTML != "<strong>Hello</strong>" {
 		t.Fatalf("unexpected MIME message: %#v", msg)
+	}
+}
+
+func TestMIMEEndpointStripsReceivedOnlyHeaders(t *testing.T) {
+	store := mailbox.NewStore()
+	mux := http.NewServeMux()
+	Register(mux, store)
+
+	raw := strings.Join([]string{
+		"Return-Path: <bounce@example.com>",
+		"Received: by mx.example.test; Tue, 09 Jun 2026 08:15:00 +0000",
+		"Delivered-To: inbox@example.com",
+		"Date: Tue, 09 Jun 2026 08:15:00 +0000",
+		"Message-ID: <client-supplied@example.com>",
+		"From: Sender <sender@example.com>",
+		"To: User <user@example.com>",
+		"Subject: MIME hello",
+		"X-Test: kept",
+		"Content-Type: text/plain; charset=utf-8",
+		"",
+		"Hello",
+	}, "\r\n")
+
+	req := httptest.NewRequest(http.MethodPost, "/v3/example.com/messages.mime", strings.NewReader(raw))
+	req.Header.Set("Content-Type", "message/rfc822")
+	res := httptest.NewRecorder()
+
+	mux.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", res.Code, res.Body.String())
+	}
+	msg := store.List()[0]
+	for _, key := range []string{"Return-Path", "Received", "Delivered-To", "Date", "Message-ID"} {
+		if _, ok := msg.Headers[key]; ok {
+			t.Fatalf("expected %s to be stripped from headers: %#v", key, msg.Headers)
+		}
+		if strings.Contains(string(msg.Raw), key+":") {
+			t.Fatalf("expected %s to be stripped from raw MIME: %s", key, string(msg.Raw))
+		}
+	}
+	if msg.Headers["X-Test"] != "kept" || !strings.Contains(string(msg.Raw), "X-Test: kept") {
+		t.Fatalf("expected custom sendable header to remain: %#v raw=%s", msg.Headers, string(msg.Raw))
 	}
 }
 

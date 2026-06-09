@@ -3,18 +3,22 @@ package web
 import (
 	"bytes"
 	"embed"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
 	"io/fs"
 	"net/http"
+	"net/mail"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"mirage/internal/html"
 	"mirage/internal/mailbox"
 )
 
@@ -25,6 +29,7 @@ type Store interface {
 	List() []mailbox.Message
 	Get(string) (mailbox.Message, bool)
 	MarkViewed(string) (mailbox.Message, bool)
+	SetViewed(string, bool) (mailbox.Message, bool)
 	Delete(string) bool
 	Clear()
 }
@@ -44,13 +49,18 @@ func Register(mux *http.ServeMux, store Store) {
 	mux.HandleFunc("GET /", app.indexHandler)
 	mux.HandleFunc("GET /messages/{id}", app.showHandler)
 	mux.HandleFunc("GET /messages/{id}/html", app.htmlHandler)
+	mux.HandleFunc("GET /messages/{id}/attachments/{index}", app.attachmentHandler)
 	mux.HandleFunc("POST /messages/{id}/unsubscribe", app.unsubscribeHandler)
 	mux.HandleFunc("POST /messages/{id}/delete", app.deleteHandler)
 	mux.HandleFunc("POST /messages/clear", app.clearHandler)
-	mux.HandleFunc("GET /api/messages", app.apiMessagesHandler)
 	mux.HandleFunc("GET /api/v1/inbox", app.apiV1InboxHandler)
+	mux.HandleFunc("DELETE /api/v1/inbox", app.apiV1InboxClearHandler)
 	mux.HandleFunc("GET /api/v1/message/{id}", app.apiV1MessageHandler)
+	mux.HandleFunc("PATCH /api/v1/message/{id}", app.apiV1MessageUpdateHandler)
+	mux.HandleFunc("DELETE /api/v1/message/{id}", app.apiV1MessageDeleteHandler)
 	mux.HandleFunc("GET /api/v1/message/{id}/body/{part}", app.apiV1MessageBodyHandler)
+	mux.HandleFunc("GET /api/v1/message/{id}/attachment/{index}", app.apiV1MessageAttachmentHandler)
+	mux.HandleFunc("GET /api/", apiNotFoundHandler)
 	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(staticFS))))
 }
 
@@ -97,11 +107,25 @@ func (a *app) htmlHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if strings.TrimSpace(msg.HTML) != "" {
-		_, _ = w.Write([]byte(msg.HTML))
+		_, _ = w.Write([]byte(resolveCIDURLs(msg)))
 		return
 	}
 	escaped := template.HTMLEscapeString(msg.Text)
 	_, _ = w.Write([]byte("<!doctype html><meta charset=\"utf-8\"><pre style=\"white-space:pre-wrap;font:14px/1.5 system-ui,sans-serif\">" + escaped + "</pre>"))
+}
+
+func (a *app) attachmentHandler(w http.ResponseWriter, r *http.Request) {
+	msg, ok := a.store.Get(r.PathValue("id"))
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	attachment, _, ok := attachmentByIndex(msg, r.PathValue("index"))
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	writeAttachment(w, attachment)
 }
 
 func (a *app) deleteHandler(w http.ResponseWriter, r *http.Request) {
@@ -141,9 +165,8 @@ func (a *app) clearHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-func (a *app) apiMessagesHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(a.store.List())
+func apiNotFoundHandler(w http.ResponseWriter, r *http.Request) {
+	apiError(w, http.StatusNotFound, "api endpoint not found")
 }
 
 func (a *app) apiV1InboxHandler(w http.ResponseWriter, r *http.Request) {
@@ -176,17 +199,23 @@ func (a *app) apiV1InboxHandler(w http.ResponseWriter, r *http.Request) {
 
 	page := paginate(filtered, limit, offset)
 	response := inboxResponse{
-		Messages: make([]messageSummary, 0, len(page)),
-		Total:    len(filtered),
-		Unread:   totalUnread,
-		Limit:    limit,
-		Offset:   offset,
-		HasMore:  offset+len(page) < len(filtered),
+		Messages:      make([]messageSummary, 0, len(page)),
+		Total:         len(allMessages),
+		FilteredTotal: len(filtered),
+		UnreadTotal:   totalUnread,
+		Limit:         limit,
+		Offset:        offset,
+		HasMore:       offset+len(page) < len(filtered),
 	}
 	for _, msg := range page {
 		response.Messages = append(response.Messages, summarizeMessage(msg, includeHeaders))
 	}
 	writeJSON(w, http.StatusOK, response)
+}
+
+func (a *app) apiV1InboxClearHandler(w http.ResponseWriter, r *http.Request) {
+	a.store.Clear()
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *app) apiV1MessageHandler(w http.ResponseWriter, r *http.Request) {
@@ -201,6 +230,42 @@ func (a *app) apiV1MessageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, messageResponse{Message: detailMessage(msg)})
+}
+
+func (a *app) apiV1MessageUpdateHandler(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Viewed *bool `json:"viewed"`
+	}
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil {
+		apiError(w, http.StatusBadRequest, "invalid message update")
+		return
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		apiError(w, http.StatusBadRequest, "invalid message update")
+		return
+	}
+	if request.Viewed == nil {
+		apiError(w, http.StatusBadRequest, "viewed is required")
+		return
+	}
+
+	msg, ok := a.store.SetViewed(r.PathValue("id"), *request.Viewed)
+	if !ok {
+		apiError(w, http.StatusNotFound, "message not found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, messageResponse{Message: detailMessage(msg)})
+}
+
+func (a *app) apiV1MessageDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	if !a.store.Delete(r.PathValue("id")) {
+		apiError(w, http.StatusNotFound, "message not found")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *app) apiV1MessageBodyHandler(w http.ResponseWriter, r *http.Request) {
@@ -236,6 +301,40 @@ func (a *app) apiV1MessageBodyHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(body))
 }
 
+func (a *app) apiV1MessageAttachmentHandler(w http.ResponseWriter, r *http.Request) {
+	msg, ok, err := a.apiMessage(r)
+	if err != nil {
+		apiError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if !ok {
+		apiError(w, http.StatusNotFound, "message not found")
+		return
+	}
+
+	attachment, index, ok := attachmentByIndex(msg, r.PathValue("index"))
+	if !ok {
+		apiError(w, http.StatusNotFound, "attachment not found")
+		return
+	}
+
+	if r.URL.Query().Get("format") == "json" {
+		writeJSON(w, http.StatusOK, attachmentBodyResponse{
+			ID:          msg.ID,
+			Index:       index,
+			Name:        attachment.Name,
+			ContentType: attachmentContentType(attachment),
+			Size:        len(attachment.Data),
+			ContentID:   attachment.ContentID,
+			Inline:      attachment.Inline,
+			BodyBase64:  base64.StdEncoding.EncodeToString(attachment.Data),
+		})
+		return
+	}
+
+	writeAttachment(w, attachment)
+}
+
 func (a *app) apiMessage(r *http.Request) (mailbox.Message, bool, error) {
 	markViewed, err := boolParam(r, "markViewed")
 	if err != nil {
@@ -250,12 +349,13 @@ func (a *app) apiMessage(r *http.Request) (mailbox.Message, bool, error) {
 }
 
 type inboxResponse struct {
-	Messages []messageSummary `json:"messages"`
-	Total    int              `json:"total"`
-	Unread   int              `json:"unread"`
-	Limit    int              `json:"limit"`
-	Offset   int              `json:"offset"`
-	HasMore  bool             `json:"hasMore"`
+	Messages      []messageSummary `json:"messages"`
+	Total         int              `json:"total"`
+	FilteredTotal int              `json:"filteredTotal"`
+	UnreadTotal   int              `json:"unreadTotal"`
+	Limit         int              `json:"limit"`
+	Offset        int              `json:"offset"`
+	HasMore       bool             `json:"hasMore"`
 }
 
 type messageResponse struct {
@@ -302,6 +402,20 @@ type attachmentResponse struct {
 	Name        string `json:"name"`
 	ContentType string `json:"contentType"`
 	Size        int64  `json:"size"`
+	ContentID   string `json:"contentId,omitempty"`
+	Inline      bool   `json:"inline"`
+	URL         string `json:"url,omitempty"`
+}
+
+type attachmentBodyResponse struct {
+	ID          string `json:"id"`
+	Index       int    `json:"index"`
+	Name        string `json:"name"`
+	ContentType string `json:"contentType"`
+	Size        int    `json:"size"`
+	ContentID   string `json:"contentId,omitempty"`
+	Inline      bool   `json:"inline"`
+	BodyBase64  string `json:"bodyBase64"`
 }
 
 type bodySummary struct {
@@ -334,7 +448,7 @@ func summarizeMessage(msg mailbox.Message, includeHeaders bool) messageSummary {
 		Bcc:             stringSlice(msg.Bcc),
 		Provider:        msg.Provider,
 		Domain:          msg.Domain,
-		CreatedAt:       msg.CreatedAt,
+		CreatedAt:       msg.CreatedAt.UTC(),
 		Viewed:          msg.Viewed,
 		HasText:         strings.TrimSpace(msg.Text) != "",
 		HasHTML:         strings.TrimSpace(msg.HTML) != "",
@@ -356,7 +470,7 @@ func detailMessage(msg mailbox.Message) messageDetail {
 		Bcc:         stringSlice(msg.Bcc),
 		Provider:    msg.Provider,
 		Domain:      msg.Domain,
-		CreatedAt:   msg.CreatedAt,
+		CreatedAt:   msg.CreatedAt.UTC(),
 		Viewed:      msg.Viewed,
 		Headers:     msg.Headers,
 		Variables:   msg.Variables,
@@ -364,17 +478,103 @@ func detailMessage(msg mailbox.Message) messageDetail {
 		Attachments: make([]attachmentResponse, 0, len(msg.Attachments)),
 		Bodies:      bodySummaries(msg),
 	}
-	for _, attachment := range msg.Attachments {
+	for i, attachment := range msg.Attachments {
+		attachmentURL := ""
+		if len(attachment.Data) > 0 {
+			attachmentURL = attachmentAPIURL(msg.ID, i)
+		}
 		detail.Attachments = append(detail.Attachments, attachmentResponse{
 			Name:        attachment.Name,
 			ContentType: attachment.ContentType,
 			Size:        attachment.Size,
+			ContentID:   attachment.ContentID,
+			Inline:      attachment.Inline,
+			URL:         attachmentURL,
 		})
 	}
 	if action := unsubscribeAction(msg); action != nil {
 		detail.Unsubscribe = &unsubscribeSummary{OneClick: true, URL: action.URL}
 	}
 	return detail
+}
+
+func attachmentByIndex(msg mailbox.Message, rawIndex string) (mailbox.Attachment, int, bool) {
+	index, err := strconv.Atoi(rawIndex)
+	if err != nil || index < 0 || index >= len(msg.Attachments) {
+		return mailbox.Attachment{}, 0, false
+	}
+	attachment := msg.Attachments[index]
+	if len(attachment.Data) == 0 {
+		return mailbox.Attachment{}, 0, false
+	}
+	return attachment, index, true
+}
+
+func writeAttachment(w http.ResponseWriter, attachment mailbox.Attachment) {
+	w.Header().Set("Content-Type", attachmentContentType(attachment))
+	w.Header().Set("Content-Length", strconv.Itoa(len(attachment.Data)))
+	if attachment.Name != "" {
+		disposition := "attachment"
+		if attachment.Inline {
+			disposition = "inline"
+		}
+		w.Header().Set("Content-Disposition", disposition+`; filename="`+strings.ReplaceAll(attachment.Name, `"`, `\"`)+`"`)
+	}
+	_, _ = w.Write(attachment.Data)
+}
+
+func attachmentContentType(attachment mailbox.Attachment) string {
+	if attachment.ContentType != "" {
+		return attachment.ContentType
+	}
+	return "application/octet-stream"
+}
+
+func attachmentAPIURL(messageID string, index int) string {
+	return "/api/v1/message/" + url.PathEscape(messageID) + "/attachment/" + strconv.Itoa(index)
+}
+
+var cidURLPattern = regexp.MustCompile(`(?i)\b(src|href)\s*=\s*(['"]?)cid:([^'"\s>]+)(['"]?)`)
+
+func resolveCIDURLs(msg mailbox.Message) string {
+	if strings.TrimSpace(msg.HTML) == "" {
+		return msg.HTML
+	}
+
+	byContentID := map[string]string{}
+	for i, attachment := range msg.Attachments {
+		if attachment.ContentID == "" || len(attachment.Data) == 0 {
+			continue
+		}
+		key := strings.ToLower(strings.TrimSpace(attachment.ContentID))
+		byContentID[key] = "/messages/" + url.PathEscape(msg.ID) + "/attachments/" + strconv.Itoa(i)
+	}
+	if len(byContentID) == 0 {
+		return msg.HTML
+	}
+
+	return cidURLPattern.ReplaceAllStringFunc(msg.HTML, func(match string) string {
+		parts := cidURLPattern.FindStringSubmatch(match)
+		if len(parts) != 5 {
+			return match
+		}
+		cid, err := url.PathUnescape(parts[3])
+		if err != nil {
+			cid = parts[3]
+		}
+		replacement, ok := byContentID[strings.ToLower(strings.TrimSpace(cid))]
+		if !ok {
+			return match
+		}
+		quote := parts[2]
+		if quote == "" {
+			quote = parts[4]
+		}
+		if quote == "" {
+			quote = `"`
+		}
+		return parts[1] + "=" + quote + replacement + quote
+	})
 }
 
 func stringSlice(values []string) []string {
@@ -519,7 +719,18 @@ func funcs() template.FuncMap {
 			return strings.TrimSpace(value) != ""
 		},
 		"mailboxLine": mailboxLine,
+		"senderName":  senderName,
+		"messageID":   messageID,
 		"dateLine":    dateLine,
+		"utcTime": func(value time.Time) string {
+			return value.UTC().Format(time.RFC3339Nano)
+		},
+		"utcClock": func(value time.Time) string {
+			return value.UTC().Format("15:04")
+		},
+		"utcDateTime": func(value time.Time) string {
+			return value.UTC().Format("Mon, 2 Jan 2006, 3:04 pm")
+		},
 		"messageSize": func(msg mailbox.Message) string {
 			size := len(msg.Raw) + len(msg.Text) + len(msg.HTML)
 			for key, value := range msg.Headers {
@@ -651,6 +862,33 @@ func mailboxLine(messages []mailbox.Message) string {
 	return fmt.Sprintf("%d %s, %d unread", len(messages), plural(len(messages), "mail", "mails"), unread)
 }
 
+func senderName(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	if address, err := mail.ParseAddress(value); err == nil && strings.TrimSpace(address.Name) != "" {
+		return strings.TrimSpace(address.Name)
+	}
+	if i := strings.Index(value, "<"); i > 0 {
+		name := strings.Trim(strings.TrimSpace(value[:i]), `"`)
+		if name != "" {
+			return name
+		}
+	}
+	if i := strings.Index(value, "@"); i > 0 {
+		return value[:i]
+	}
+	return value
+}
+
+func messageID(msg mailbox.Message) string {
+	if value := strings.TrimSpace(headerValue(msg.Headers, "Message-Id")); value != "" {
+		return value
+	}
+	return "<" + msg.ID + "@mirage.local>"
+}
+
 func plural(count int, singular, plural string) string {
 	if count == 1 {
 		return singular
@@ -659,210 +897,7 @@ func plural(count int, singular, plural string) string {
 }
 
 func htmlSource(msg mailbox.Message) template.HTML {
-	if strings.TrimSpace(msg.HTML) == "" {
-		return template.HTML(`<span class="html-muted">(no HTML body)</span>`)
-	}
-	return template.HTML(colorHTMLSource(prettyHTMLSource(msg.HTML)))
-}
-
-func prettyHTMLSource(source string) string {
-	source = strings.TrimSpace(source)
-	var out strings.Builder
-	indent := 0
-
-	writeLine := func(value string) {
-		value = strings.TrimSpace(value)
-		if value == "" {
-			return
-		}
-		if out.Len() > 0 {
-			out.WriteByte('\n')
-		}
-		out.WriteString(strings.Repeat("  ", max(indent, 0)))
-		out.WriteString(value)
-	}
-
-	for i := 0; i < len(source); {
-		if source[i] != '<' {
-			next := strings.IndexByte(source[i:], '<')
-			if next == -1 {
-				next = len(source) - i
-			}
-			text := strings.Join(strings.Fields(source[i:i+next]), " ")
-			if text != "" {
-				writeLine(text)
-			}
-			i += next
-			continue
-		}
-
-		end := htmlTagEnd(source, i)
-		if end == -1 {
-			writeLine(source[i:])
-			break
-		}
-
-		tag := strings.TrimSpace(source[i : end+1])
-		if htmlClosingTag(tag) {
-			indent--
-		}
-		writeLine(tag)
-		if htmlOpeningTag(tag) && !htmlVoidTag(tag) {
-			indent++
-		}
-		i = end + 1
-	}
-
-	return out.String()
-}
-
-func htmlTagEnd(source string, start int) int {
-	var quote byte
-	for i := start + 1; i < len(source); i++ {
-		switch source[i] {
-		case '\'', '"':
-			if quote == 0 {
-				quote = source[i]
-			} else if quote == source[i] {
-				quote = 0
-			}
-		case '>':
-			if quote == 0 {
-				return i
-			}
-		}
-	}
-	return -1
-}
-
-func htmlClosingTag(tag string) bool {
-	return strings.HasPrefix(tag, "</")
-}
-
-func htmlOpeningTag(tag string) bool {
-	if !strings.HasPrefix(tag, "<") || htmlClosingTag(tag) || strings.HasPrefix(tag, "<!") || strings.HasPrefix(tag, "<?") {
-		return false
-	}
-	return !strings.HasSuffix(strings.TrimSpace(tag), "/>")
-}
-
-func htmlVoidTag(tag string) bool {
-	switch htmlTagName(tag) {
-	case "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr":
-		return true
-	default:
-		return false
-	}
-}
-
-func htmlTagName(tag string) string {
-	tag = strings.TrimSpace(tag)
-	tag = strings.TrimPrefix(tag, "</")
-	tag = strings.TrimPrefix(tag, "<")
-	tag = strings.TrimLeft(tag, "!?")
-	end := strings.IndexFunc(tag, func(r rune) bool {
-		return r == '>' || r == '/' || r == ' ' || r == '\t' || r == '\n' || r == '\r'
-	})
-	if end == -1 {
-		end = len(tag)
-	}
-	return strings.ToLower(tag[:end])
-}
-
-func colorHTMLSource(source string) string {
-	var out strings.Builder
-	for i := 0; i < len(source); {
-		if source[i] != '<' {
-			next := strings.IndexByte(source[i:], '<')
-			if next == -1 {
-				next = len(source) - i
-			}
-			out.WriteString(`<span class="html-text">`)
-			out.WriteString(template.HTMLEscapeString(source[i : i+next]))
-			out.WriteString(`</span>`)
-			i += next
-			continue
-		}
-
-		end := htmlTagEnd(source, i)
-		if end == -1 {
-			out.WriteString(template.HTMLEscapeString(source[i:]))
-			break
-		}
-		out.WriteString(colorHTMLTag(source[i : end+1]))
-		i = end + 1
-	}
-	return out.String()
-}
-
-func colorHTMLTag(tag string) string {
-	if strings.HasPrefix(tag, "<!--") {
-		return `<span class="html-comment">` + template.HTMLEscapeString(tag) + `</span>`
-	}
-	if strings.HasPrefix(tag, "<!") || strings.HasPrefix(tag, "<?") {
-		return `<span class="html-punctuation">` + template.HTMLEscapeString(tag) + `</span>`
-	}
-
-	var out strings.Builder
-	i := 0
-	for i < len(tag) {
-		if tag[i] == '<' || tag[i] == '>' || tag[i] == '/' || tag[i] == '=' {
-			out.WriteString(`<span class="html-punctuation">`)
-			out.WriteString(template.HTMLEscapeString(tag[i : i+1]))
-			out.WriteString(`</span>`)
-			i++
-			continue
-		}
-		if tag[i] == '"' || tag[i] == '\'' {
-			end := quotedHTMLValueEnd(tag, i)
-			out.WriteString(`<span class="html-attr-value">`)
-			out.WriteString(template.HTMLEscapeString(tag[i:end]))
-			out.WriteString(`</span>`)
-			i = end
-			continue
-		}
-		if isHTMLSpace(tag[i]) {
-			out.WriteByte(tag[i])
-			i++
-			continue
-		}
-
-		start := i
-		for i < len(tag) && !isHTMLSpace(tag[i]) && !strings.ContainsRune(`<>/="'`, rune(tag[i])) {
-			i++
-		}
-		class := "html-attr-name"
-		if previousNonSpace(tag, start) == '<' || previousNonSpace(tag, start) == '/' && start > 1 && tag[start-2] == '<' {
-			class = "html-tag-name"
-		}
-		out.WriteString(`<span class="` + class + `">`)
-		out.WriteString(template.HTMLEscapeString(tag[start:i]))
-		out.WriteString(`</span>`)
-	}
-	return out.String()
-}
-
-func quotedHTMLValueEnd(tag string, start int) int {
-	quote := tag[start]
-	for i := start + 1; i < len(tag); i++ {
-		if tag[i] == quote {
-			return i + 1
-		}
-	}
-	return len(tag)
-}
-
-func previousNonSpace(value string, before int) byte {
-	for i := before - 1; i >= 0; i-- {
-		if !isHTMLSpace(value[i]) {
-			return value[i]
-		}
-	}
-	return 0
-}
-
-func isHTMLSpace(ch byte) bool {
-	return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r'
+	return html.PrettyHTMLSource(msg.HTML)
 }
 
 type headerRow struct {
@@ -874,7 +909,7 @@ func dateLine(msg mailbox.Message) string {
 	if value := strings.TrimSpace(msg.Headers["Date"]); value != "" {
 		return value
 	}
-	return msg.CreatedAt.Format("Mon, 2 Jan 2006, 3:04 pm")
+	return msg.CreatedAt.UTC().Format(time.RFC1123Z)
 }
 
 func headerRows(msg mailbox.Message) []headerRow {
@@ -928,7 +963,7 @@ func rawMessage(msg mailbox.Message) string {
 	writeHeader("Cc", strings.Join(msg.Cc, ", "))
 	writeHeader("Bcc", strings.Join(msg.Bcc, ", "))
 	writeHeader("Subject", msg.Subject)
-	writeHeader("Date", msg.CreatedAt.Format(time.RFC1123Z))
+	writeHeader("Date", msg.CreatedAt.UTC().Format(time.RFC1123Z))
 
 	keys := make([]string, 0, len(msg.Headers))
 	for key := range msg.Headers {

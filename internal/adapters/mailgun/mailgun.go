@@ -6,6 +6,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/mail"
 	"sort"
 	"strings"
 
@@ -57,7 +58,7 @@ func handleMessage(w http.ResponseWriter, r *http.Request, store Store) {
 		Subject:     first(r.Form["subject"]),
 		Text:        first(r.Form["text"]),
 		HTML:        first(r.Form["html"]),
-		Headers:     prefixedFields(r.Form, "h:"),
+		Headers:     sendableHeaders(prefixedFields(r.Form, "h:")),
 		Variables:   prefixedFields(r.Form, "v:"),
 		Options:     prefixedFields(r.Form, "o:"),
 		Attachments: attachments,
@@ -85,6 +86,7 @@ func handleMIMEMessage(w http.ResponseWriter, r *http.Request, store Store) {
 			http.Error(w, "invalid MIME message: "+err.Error(), http.StatusBadRequest)
 			return
 		}
+		raw = sanitizeSubmittedMIME(raw)
 		msg.Provider = "mailgun"
 		msg.Domain = r.PathValue("domain")
 		msg.Raw = raw
@@ -111,6 +113,7 @@ func handleMIMEMessage(w http.ResponseWriter, r *http.Request, store Store) {
 		http.Error(w, "invalid MIME message: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+	raw = sanitizeSubmittedMIME(raw)
 	msg.Provider = "mailgun"
 	msg.Domain = r.PathValue("domain")
 	msg.Raw = raw
@@ -214,7 +217,7 @@ func parseMIME(raw []byte) (mailbox.Message, error) {
 		Subject:     parsed.Subject,
 		Text:        parsed.Text,
 		HTML:        parsed.HTML,
-		Headers:     parsed.Headers,
+		Headers:     sendableHeaders(parsed.Headers),
 		Attachments: make([]mailbox.Attachment, 0, len(parsed.Attachments)),
 	}
 	for _, attachment := range parsed.Attachments {
@@ -228,4 +231,52 @@ func parseMIME(raw []byte) (mailbox.Message, error) {
 		})
 	}
 	return msg, nil
+}
+
+func sendableHeaders(headers map[string]string) map[string]string {
+	out := map[string]string{}
+	for key, value := range headers {
+		if blockedSubmittedMIMEHeader(key) {
+			continue
+		}
+		out[key] = value
+	}
+	return out
+}
+
+func sanitizeSubmittedMIME(raw []byte) []byte {
+	parsed, err := mail.ReadMessage(strings.NewReader(string(raw)))
+	if err != nil {
+		return raw
+	}
+
+	var out strings.Builder
+	keys := make([]string, 0, len(parsed.Header))
+	for key := range parsed.Header {
+		if blockedSubmittedMIMEHeader(key) {
+			continue
+		}
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		for _, value := range parsed.Header[key] {
+			out.WriteString(key)
+			out.WriteString(": ")
+			out.WriteString(value)
+			out.WriteString("\r\n")
+		}
+	}
+	out.WriteString("\r\n")
+	_, _ = io.Copy(&out, parsed.Body)
+	return []byte(out.String())
+}
+
+func blockedSubmittedMIMEHeader(key string) bool {
+	switch strings.ToLower(strings.TrimSpace(key)) {
+	case "date", "delivered-to", "message-id", "received", "return-path":
+		return true
+	default:
+		return false
+	}
 }

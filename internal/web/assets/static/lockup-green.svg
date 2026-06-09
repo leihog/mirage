@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 84" style="color:#36E27E" role="img" aria-label="Mirage">
+  <g transform="translate(6,12)" fill="none" stroke="currentColor" stroke-linejoin="round">
+    <path stroke-width="1.8" opacity="0.16" transform="translate(-7,-5)" d="M16 50L16 10L31 10L50 33L69 10L84 10L84 50L69 50L69 31L50 49L31 31L31 50Z"></path>
+    <path stroke-width="1.8" opacity="0.34" transform="translate(-3.5,-2.5)" d="M16 50L16 10L31 10L50 33L69 10L84 10L84 50L69 50L69 31L50 49L31 31L31 50Z"></path>
+    <path stroke-width="2.2" opacity="1" d="M16 50L16 10L31 10L50 33L69 10L84 10L84 50L69 50L69 31L50 49L31 31L31 50Z"></path>
+    <path stroke-width="1.8" opacity="0.5" transform="translate(3.5,2.5)" d="M16 50L16 10L31 10L50 33L69 10L84 10L84 50L69 50L69 31L50 49L31 31L31 50Z"></path>
+    <path stroke-width="1.8" opacity="0.26" transform="translate(7,5)" d="M16 50L16 10L31 10L50 33L69 10L84 10L84 50L69 50L69 31L50 49L31 31L31 50Z"></path>
+  </g>
+  <text x="116" y="55" fill="currentColor" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="40" font-weight="500" letter-spacing="0">mirage</text>
+</svg>

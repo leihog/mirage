@@ -50,8 +50,9 @@ func (s *Store) Add(msg Message) Message {
 	defer s.mu.Unlock()
 
 	s.nextID++
-	msg.ID = time.Now().UTC().Format("20060102T150405") + "-" + itoa(s.nextID)
-	msg.CreatedAt = time.Now()
+	now := time.Now().UTC()
+	msg.ID = now.Format("20060102T150405") + "-" + itoa(s.nextID)
+	msg.CreatedAt = now
 	if msg.Headers == nil {
 		msg.Headers = map[string]string{}
 	}
@@ -88,12 +89,16 @@ func (s *Store) Get(id string) (Message, bool) {
 }
 
 func (s *Store) MarkViewed(id string) (Message, bool) {
+	return s.SetViewed(id, true)
+}
+
+func (s *Store) SetViewed(id string, viewed bool) (Message, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for i, msg := range s.messages {
 		if msg.ID == id {
-			s.messages[i].Viewed = true
+			s.messages[i].Viewed = viewed
 			return s.messages[i], true
 		}
 	}

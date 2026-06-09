@@ -1,6 +1,9 @@
 package mailbox
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestStoreDeleteRemovesOnlyMatchingMessage(t *testing.T) {
 	store := NewStore()
@@ -23,6 +26,18 @@ func TestStoreDeleteRemovesOnlyMatchingMessage(t *testing.T) {
 	}
 }
 
+func TestStoreAddUsesUTCCreatedAt(t *testing.T) {
+	store := NewStore()
+	msg := store.Add(Message{Subject: "timestamp"})
+
+	if msg.CreatedAt.Location() != time.UTC {
+		t.Fatalf("expected UTC location, got %s", msg.CreatedAt.Location())
+	}
+	if got := store.List()[0].CreatedAt.Location(); got != time.UTC {
+		t.Fatalf("expected stored UTC location, got %s", got)
+	}
+}
+
 func TestStoreMarkViewedUpdatesMessage(t *testing.T) {
 	store := NewStore()
 	msg := store.Add(Message{Subject: "unread"})
@@ -39,5 +54,29 @@ func TestStoreMarkViewedUpdatesMessage(t *testing.T) {
 	}
 	if _, ok := store.MarkViewed("missing"); ok {
 		t.Fatal("missing mark viewed should report false")
+	}
+}
+
+func TestStoreSetViewedUpdatesMessage(t *testing.T) {
+	store := NewStore()
+	msg := store.Add(Message{Subject: "read state"})
+
+	viewed, ok := store.SetViewed(msg.ID, true)
+	if !ok {
+		t.Fatal("expected set viewed to find the message")
+	}
+	if !viewed.Viewed || !store.List()[0].Viewed {
+		t.Fatal("expected message to be viewed")
+	}
+
+	unread, ok := store.SetViewed(msg.ID, false)
+	if !ok {
+		t.Fatal("expected set unread to find the message")
+	}
+	if unread.Viewed || store.List()[0].Viewed {
+		t.Fatal("expected message to be unread")
+	}
+	if _, ok := store.SetViewed("missing", true); ok {
+		t.Fatal("missing set viewed should report false")
 	}
 }

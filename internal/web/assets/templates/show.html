@@ -9,6 +9,12 @@
           <button class="secondary-button" type="submit">Unsubscribe</button>
         </form>
         {{end}}
+        <button class="icon-button" type="button" data-copy-message-id="{{.Selected.ID}}" title="Copy Message-ID" aria-label="Copy Message-ID">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8V5.5A1.5 1.5 0 0 1 9.5 4h9A1.5 1.5 0 0 1 20 5.5v9A1.5 1.5 0 0 1 18.5 16H16M5.5 8h9A1.5 1.5 0 0 1 16 9.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 4 18.5v-9A1.5 1.5 0 0 1 5.5 8Z"/></svg>
+        </button>
+        <button class="icon-button terminal-button" type="button" data-copy-curl="{{.Selected.ID}}" title="Copy to Curl" aria-label="Copy to Curl">
+          <span aria-hidden="true">&gt;_</span>
+        </button>
         <form class="delete-form" method="post" action="/messages/{{.Selected.ID}}/delete">
           <button class="icon-button danger" type="submit" title="Delete message" aria-label="Delete message">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>
@@ -16,11 +22,11 @@
         </form>
       </div>
       <dl>
-        <div><dt>From</dt><dd>{{.Selected.From}}</dd></div>
-        <div><dt>To</dt><dd>{{join .Selected.To}}</dd></div>
-        {{if .Selected.Cc}}<div><dt>Cc</dt><dd>{{join .Selected.Cc}}</dd></div>{{end}}
+        <div><dt>From</dt><dd class="address-value">{{.Selected.From}}</dd></div>
+        <div><dt>To</dt><dd class="address-value">{{join .Selected.To}}</dd></div>
+        {{if .Selected.Cc}}<div><dt>Cc</dt><dd class="address-value">{{join .Selected.Cc}}</dd></div>{{end}}
         <div><dt>Subject</dt><dd><strong>{{if .Selected.Subject}}{{.Selected.Subject}}{{else}}(no subject){{end}}</strong></dd></div>
-        <div><dt>Date</dt><dd>{{dateLine .Selected}} <span class="size">({{messageSize .Selected}})</span></dd></div>
+        <div><dt>Date</dt><dd><time datetime="{{utcTime .Selected.CreatedAt}}" data-timestamp="{{utcTime .Selected.CreatedAt}}" data-timestamp-format="datetime">{{utcDateTime .Selected.CreatedAt}}</time> <span class="size">({{messageSize .Selected}})</span></dd></div>
         <div><dt>Provider</dt><dd>{{.Selected.Provider}} / {{.Selected.Domain}}</dd></div>
       </dl>
     </header>
@@ -30,9 +36,22 @@
       <button class="tab" type="button" data-tab="text">Text</button>
       <button class="tab" type="button" data-tab="headers">Headers</button>
       <button class="tab" type="button" data-tab="raw">Raw</button>
+      <div class="segmented-control" data-preview-width aria-label="Preview width">
+        <button type="button" data-preview-mode="mobile" title="Mobile width" aria-label="Mobile width">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2.75h8A2.25 2.25 0 0 1 18.25 5v14A2.25 2.25 0 0 1 16 21.25H8A2.25 2.25 0 0 1 5.75 19V5A2.25 2.25 0 0 1 8 2.75ZM10 18.25h4"/></svg>
+        </button>
+        <button type="button" data-preview-mode="desktop" title="Desktop width" aria-label="Desktop width">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.75h16A1.25 1.25 0 0 1 21.25 7v9A1.25 1.25 0 0 1 20 17.25H4A1.25 1.25 0 0 1 2.75 16V7A1.25 1.25 0 0 1 4 5.75ZM9 21.25h6M12 17.25v4"/></svg>
+        </button>
+        <button type="button" data-preview-mode="full" title="Full width" aria-label="Full width">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3.75H3.75V8M16 3.75h4.25V8M20.25 16v4.25H16M8 20.25H3.75V16M3.75 3.75l6 6M20.25 3.75l-6 6M20.25 20.25l-6-6M3.75 20.25l6-6"/></svg>
+        </button>
+      </div>
     </nav>
     <section id="tab-html" class="panel preview tab-panel active">
-      <iframe title="Email preview" src="/messages/{{.Selected.ID}}/html" sandbox=""></iframe>
+      <div class="preview-canvas" data-preview-canvas>
+        <iframe title="Email preview" src="/messages/{{.Selected.ID}}/html" sandbox=""></iframe>
+      </div>
     </section>
     <section id="tab-source" class="panel code-panel tab-panel">
       <pre class="html-source">{{htmlSource .Selected}}</pre>
