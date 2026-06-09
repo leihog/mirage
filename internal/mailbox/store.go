@@ -30,6 +30,9 @@ type Attachment struct {
 	Name        string
 	ContentType string
 	Size        int64
+	ContentID   string
+	Inline      bool
+	Data        []byte
 }
 
 type Store struct {

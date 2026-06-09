@@ -1,19 +1,16 @@
 package mailgun
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
-	"mime"
 	"mime/multipart"
-	"mime/quotedprintable"
 	"net/http"
-	"net/mail"
 	"sort"
 	"strings"
 
 	"mirage/internal/mailbox"
+	mailmime "mirage/internal/mime"
 )
 
 const maxRequestBody = 32 << 20
@@ -44,20 +41,26 @@ func handleMessage(w http.ResponseWriter, r *http.Request, store Store) {
 		return
 	}
 
+	attachments, err := readAttachmentMetadata(r.MultipartForm)
+	if err != nil {
+		http.Error(w, "invalid attachment: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	msg := mailbox.Message{
 		Provider:    "mailgun",
 		Domain:      r.PathValue("domain"),
-		From:        first(r.Form["from"]),
-		To:          parseAddressFields(r.Form["to"]),
-		Cc:          parseAddressFields(r.Form["cc"]),
-		Bcc:         parseAddressFields(r.Form["bcc"]),
+		From:        mailmime.ParseAddressField(first(r.Form["from"])),
+		To:          mailmime.ParseAddressFields(r.Form["to"]),
+		Cc:          mailmime.ParseAddressFields(r.Form["cc"]),
+		Bcc:         mailmime.ParseAddressFields(r.Form["bcc"]),
 		Subject:     first(r.Form["subject"]),
 		Text:        first(r.Form["text"]),
 		HTML:        first(r.Form["html"]),
 		Headers:     prefixedFields(r.Form, "h:"),
 		Variables:   prefixedFields(r.Form, "v:"),
 		Options:     prefixedFields(r.Form, "o:"),
-		Attachments: readAttachmentMetadata(r.MultipartForm),
+		Attachments: attachments,
 	}
 	msg = store.Add(msg)
 
@@ -86,7 +89,12 @@ func handleMIMEMessage(w http.ResponseWriter, r *http.Request, store Store) {
 		msg.Domain = r.PathValue("domain")
 		msg.Raw = raw
 		if filename != "" {
-			msg.Attachments = append(msg.Attachments, mailbox.Attachment{Name: filename, Size: int64(len(raw)), ContentType: "message/rfc822"})
+			msg.Attachments = append(msg.Attachments, mailbox.Attachment{
+				Name:        filename,
+				Size:        int64(len(raw)),
+				ContentType: "message/rfc822",
+				Data:        raw,
+			})
 		}
 		msg = store.Add(msg)
 		writeMailgunResponse(w, msg)
@@ -126,24 +134,6 @@ func first(values []string) string {
 	return values[0]
 }
 
-func parseAddressFields(values []string) []string {
-	var addresses []string
-	for _, value := range values {
-		if strings.TrimSpace(value) == "" {
-			continue
-		}
-		parsed, err := mail.ParseAddressList(value)
-		if err != nil {
-			addresses = append(addresses, strings.TrimSpace(value))
-			continue
-		}
-		for _, addr := range parsed {
-			addresses = append(addresses, addr.String())
-		}
-	}
-	return addresses
-}
-
 func prefixedFields(values map[string][]string, prefix string) map[string]string {
 	out := map[string]string{}
 	for key, fieldValues := range values {
@@ -154,9 +144,9 @@ func prefixedFields(values map[string][]string, prefix string) map[string]string
 	return out
 }
 
-func readAttachmentMetadata(form *multipart.Form) []mailbox.Attachment {
+func readAttachmentMetadata(form *multipart.Form) ([]mailbox.Attachment, error) {
 	if form == nil {
-		return nil
+		return nil, nil
 	}
 
 	var attachments []mailbox.Attachment
@@ -165,17 +155,33 @@ func readAttachmentMetadata(form *multipart.Form) []mailbox.Attachment {
 			continue
 		}
 		for _, file := range files {
+			data, err := readUploadedFile(file)
+			if err != nil {
+				return nil, err
+			}
 			attachments = append(attachments, mailbox.Attachment{
 				Name:        file.Filename,
 				ContentType: file.Header.Get("Content-Type"),
-				Size:        file.Size,
+				Size:        int64(len(data)),
+				ContentID:   mailmime.NormalizeContentID(file.Header.Get("Content-ID")),
+				Inline:      field == "inline",
+				Data:        data,
 			})
 		}
 	}
 	sort.SliceStable(attachments, func(i, j int) bool {
 		return attachments[i].Name < attachments[j].Name
 	})
-	return attachments
+	return attachments, nil
+}
+
+func readUploadedFile(header *multipart.FileHeader) ([]byte, error) {
+	file, err := header.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	return io.ReadAll(file)
 }
 
 func firstUploadedFile(form *multipart.Form, field string) ([]byte, string, error) {
@@ -195,77 +201,31 @@ func firstUploadedFile(form *multipart.Form, field string) ([]byte, string, erro
 }
 
 func parseMIME(raw []byte) (mailbox.Message, error) {
-	parsed, err := mail.ReadMessage(strings.NewReader(string(raw)))
+	parsed, err := mailmime.Parse(raw)
 	if err != nil {
 		return mailbox.Message{}, err
 	}
 
 	msg := mailbox.Message{
-		From:    parsed.Header.Get("From"),
-		To:      parseAddressFields(parsed.Header["To"]),
-		Cc:      parseAddressFields(parsed.Header["Cc"]),
-		Bcc:     parseAddressFields(parsed.Header["Bcc"]),
-		Subject: parsed.Header.Get("Subject"),
-		Headers: map[string]string{},
+		From:        parsed.From,
+		To:          parsed.To,
+		Cc:          parsed.Cc,
+		Bcc:         parsed.Bcc,
+		Subject:     parsed.Subject,
+		Text:        parsed.Text,
+		HTML:        parsed.HTML,
+		Headers:     parsed.Headers,
+		Attachments: make([]mailbox.Attachment, 0, len(parsed.Attachments)),
 	}
-	for key, values := range parsed.Header {
-		msg.Headers[key] = strings.Join(values, ", ")
-	}
-
-	mediaType, params, err := mime.ParseMediaType(parsed.Header.Get("Content-Type"))
-	if err != nil || !strings.HasPrefix(mediaType, "multipart/") {
-		body, readErr := io.ReadAll(parsed.Body)
-		if readErr != nil {
-			return mailbox.Message{}, readErr
-		}
-		if mediaType == "text/html" {
-			msg.HTML = string(body)
-		} else {
-			msg.Text = string(body)
-		}
-		return msg, nil
-	}
-
-	reader := multipart.NewReader(parsed.Body, params["boundary"])
-	for {
-		part, err := reader.NextPart()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return mailbox.Message{}, err
-		}
-		body, err := readPartBody(part)
-		if err != nil {
-			return mailbox.Message{}, err
-		}
-
-		partType, _, _ := mime.ParseMediaType(part.Header.Get("Content-Type"))
-		switch {
-		case partType == "text/plain" && msg.Text == "":
-			msg.Text = string(body)
-		case partType == "text/html" && msg.HTML == "":
-			msg.HTML = string(body)
-		default:
-			if filename := part.FileName(); filename != "" {
-				msg.Attachments = append(msg.Attachments, mailbox.Attachment{
-					Name:        filename,
-					ContentType: part.Header.Get("Content-Type"),
-					Size:        int64(len(body)),
-				})
-			}
-		}
+	for _, attachment := range parsed.Attachments {
+		msg.Attachments = append(msg.Attachments, mailbox.Attachment{
+			Name:        attachment.Name,
+			ContentType: attachment.ContentType,
+			Size:        attachment.Size,
+			ContentID:   attachment.ContentID,
+			Inline:      attachment.Inline,
+			Data:        attachment.Data,
+		})
 	}
 	return msg, nil
-}
-
-func readPartBody(part *multipart.Part) ([]byte, error) {
-	switch strings.ToLower(part.Header.Get("Content-Transfer-Encoding")) {
-	case "base64":
-		return io.ReadAll(base64.NewDecoder(base64.StdEncoding, part))
-	case "quoted-printable":
-		return io.ReadAll(quotedprintable.NewReader(part))
-	default:
-		return io.ReadAll(part)
-	}
 }

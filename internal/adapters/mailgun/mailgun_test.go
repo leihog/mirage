@@ -93,3 +93,67 @@ func TestMIMEEndpointCapturesUploadedMessage(t *testing.T) {
 		t.Fatalf("unexpected MIME message: %#v", msg)
 	}
 }
+
+func TestMIMEEndpointCapturesNestedMultipartAlternative(t *testing.T) {
+	store := mailbox.NewStore()
+	mux := http.NewServeMux()
+	Register(mux, store)
+
+	var body strings.Builder
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("message", "nested.eml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = part.Write([]byte(strings.Join([]string{
+		"From: Sender <sender@example.com>",
+		"To: User <user@example.com>",
+		"Subject: Nested MIME hello",
+		"Content-Type: multipart/mixed; boundary=mixed",
+		"",
+		"--mixed",
+		"Content-Type: multipart/alternative; boundary=alt",
+		"",
+		"--alt",
+		"Content-Type: text/plain; charset=utf-8",
+		"",
+		"Plain nested",
+		"--alt",
+		"Content-Type: text/html; charset=utf-8",
+		"",
+		"<strong>Nested</strong>",
+		"--alt--",
+		"--mixed",
+		"Content-Type: text/plain; name=notes.txt",
+		"Content-Disposition: attachment; filename=notes.txt",
+		"",
+		"attachment body",
+		"--mixed--",
+	}, "\r\n")))
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/v3/example.com/messages.mime", strings.NewReader(body.String()))
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	res := httptest.NewRecorder()
+
+	mux.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", res.Code, res.Body.String())
+	}
+	msg := store.List()[0]
+	if msg.Subject != "Nested MIME hello" || msg.Text != "Plain nested" || msg.HTML != "<strong>Nested</strong>" {
+		t.Fatalf("unexpected MIME message: %#v", msg)
+	}
+	if len(msg.Attachments) != 2 {
+		t.Fatalf("expected uploaded .eml plus nested attachment metadata, got %#v", msg.Attachments)
+	}
+	if msg.Attachments[0].Name != "notes.txt" || msg.Attachments[1].Name != "nested.eml" {
+		t.Fatalf("unexpected attachments: %#v", msg.Attachments)
+	}
+	if len(msg.Attachments[0].Data) == 0 || len(msg.Attachments[1].Data) == 0 {
+		t.Fatalf("expected nested and uploaded attachments to be inspectable: %#v", msg.Attachments)
+	}
+}
