@@ -23,6 +23,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const unsubscribeOpen = document.querySelector("[data-unsubscribe-open]");
   const unsubscribeSend = document.querySelector("[data-unsubscribe-send]");
   const unsubscribeCopyCurl = document.querySelector("[data-unsubscribe-copy-curl]");
+  const connectionStatus = document.querySelector("[data-connection-status]");
+  const connectionLabel = document.querySelector("[data-connection-label]");
 
   function themeChoice() {
     const stored = localStorage.getItem(themeKey);
@@ -338,6 +340,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!list) return;
 
   let knownSignature = Array.from(document.querySelectorAll(".message")).map((item) => item.dataset.id + ":" + item.classList.contains("unread")).join("|");
+  let refreshInFlight = null;
   async function refreshMessages() {
     const response = await fetch("/api/v1/inbox?limit=50&offset=0", { cache: "no-store" });
     if (!response.ok) return;
@@ -347,6 +350,66 @@ document.addEventListener("DOMContentLoaded", () => {
     if (nextSignature === knownSignature) return;
     knownSignature = nextSignature;
     renderList(messages, inbox);
+  }
+
+  function scheduleRefresh() {
+    if (!refreshInFlight) {
+      refreshInFlight = refreshMessages().finally(() => {
+        refreshInFlight = null;
+      });
+    }
+    return refreshInFlight;
+  }
+
+  function setConnectionStatus(status) {
+    if (!connectionStatus || !connectionLabel) return;
+    const labels = {
+      connected: "Connected",
+      connecting: "Connecting",
+      disconnected: "Reconnecting",
+    };
+    const titles = {
+      connected: "Connected to Mirage",
+      connecting: "Connecting to Mirage",
+      disconnected: "Connection lost. Reconnecting to Mirage.",
+    };
+    connectionStatus.dataset.connectionStatus = status;
+    connectionLabel.textContent = labels[status] || labels.connecting;
+    connectionStatus.title = titles[status] || titles.connecting;
+  }
+
+  function handleServerEvent(event) {
+    let payload = {};
+    try {
+      payload = event?.data ? JSON.parse(event.data) : {};
+    } catch {
+      payload = {};
+    }
+    if (currentID && (payload.type === "inbox-cleared" || (payload.type === "message-deleted" && payload.messageId === currentID))) {
+      location.href = "/";
+      return;
+    }
+    scheduleRefresh().catch(() => {});
+  }
+
+  function connectEvents() {
+    if (typeof EventSource !== "function") {
+      setConnectionStatus("disconnected");
+      setInterval(() => scheduleRefresh().catch(() => {}), 10000);
+      return;
+    }
+    setConnectionStatus("connecting");
+    const events = new EventSource("/api/v1/events");
+    events.addEventListener("open", () => {
+      setConnectionStatus("connected");
+      scheduleRefresh().catch(() => {});
+    });
+    events.addEventListener("error", () => {
+      setConnectionStatus("disconnected");
+    });
+    for (const eventType of ["ready", "message-added", "message-updated", "message-deleted", "inbox-cleared"]) {
+      events.addEventListener(eventType, handleServerEvent);
+    }
   }
 
   function renderList(messages, inbox) {
@@ -529,5 +592,5 @@ document.addEventListener("DOMContentLoaded", () => {
     return '"' + String(value).replace(/(["\\$`])/g, "\\$1") + '"';
   }
 
-  setInterval(() => refreshMessages().catch(() => {}), 2000);
+  connectEvents();
 });

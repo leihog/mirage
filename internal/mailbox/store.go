@@ -1,6 +1,7 @@
 package mailbox
 
 import (
+	"context"
 	"slices"
 	"sync"
 	"time"
@@ -35,10 +36,18 @@ type Attachment struct {
 	Data        []byte
 }
 
+type Event struct {
+	Revision  uint64 `json:"revision"`
+	Type      string `json:"type"`
+	MessageID string `json:"messageId,omitempty"`
+}
+
 type Store struct {
-	mu       sync.RWMutex
-	nextID   uint64
-	messages []Message
+	mu          sync.RWMutex
+	nextID      uint64
+	revision    uint64
+	messages    []Message
+	subscribers map[chan Event]struct{}
 }
 
 func NewStore() *Store {
@@ -64,6 +73,7 @@ func (s *Store) Add(msg Message) Message {
 	}
 
 	s.messages = append(s.messages, msg)
+	s.publishLocked("message-added", msg.ID)
 	return msg
 }
 
@@ -98,7 +108,11 @@ func (s *Store) SetViewed(id string, viewed bool) (Message, bool) {
 
 	for i, msg := range s.messages {
 		if msg.ID == id {
+			if s.messages[i].Viewed == viewed {
+				return s.messages[i], true
+			}
 			s.messages[i].Viewed = viewed
+			s.publishLocked("message-updated", id)
 			return s.messages[i], true
 		}
 	}
@@ -112,6 +126,7 @@ func (s *Store) Delete(id string) bool {
 	for i, msg := range s.messages {
 		if msg.ID == id {
 			s.messages = slices.Delete(s.messages, i, i+1)
+			s.publishLocked("message-deleted", id)
 			return true
 		}
 	}
@@ -122,7 +137,49 @@ func (s *Store) Clear() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if len(s.messages) == 0 {
+		return
+	}
 	s.messages = nil
+	s.publishLocked("inbox-cleared", "")
+}
+
+func (s *Store) Subscribe(ctx context.Context) <-chan Event {
+	ch := make(chan Event, 8)
+
+	s.mu.Lock()
+	if s.subscribers == nil {
+		s.subscribers = map[chan Event]struct{}{}
+	}
+	s.subscribers[ch] = struct{}{}
+	s.mu.Unlock()
+
+	go func() {
+		<-ctx.Done()
+		s.mu.Lock()
+		if _, ok := s.subscribers[ch]; ok {
+			delete(s.subscribers, ch)
+			close(ch)
+		}
+		s.mu.Unlock()
+	}()
+
+	return ch
+}
+
+func (s *Store) publishLocked(eventType, messageID string) {
+	s.revision++
+	event := Event{
+		Revision:  s.revision,
+		Type:      eventType,
+		MessageID: messageID,
+	}
+	for ch := range s.subscribers {
+		select {
+		case ch <- event:
+		default:
+		}
+	}
 }
 
 func itoa(n uint64) string {

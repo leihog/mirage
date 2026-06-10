@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"embed"
 	"html/template"
 	"io/fs"
@@ -19,6 +20,7 @@ type Store interface {
 	SetViewed(string, bool) (mailbox.Message, bool)
 	Delete(string) bool
 	Clear()
+	Subscribe(context.Context) <-chan mailbox.Event
 }
 
 type app struct {
@@ -47,6 +49,7 @@ func Register(mux *http.ServeMux, store Store) {
 	mux.HandleFunc("POST /messages/{id}/delete", app.deleteHandler)
 	mux.HandleFunc("POST /messages/clear", app.clearHandler)
 	mux.HandleFunc("GET /api/v1/inbox", app.apiV1InboxHandler)
+	mux.HandleFunc("GET /api/v1/events", app.apiV1EventsHandler)
 	mux.HandleFunc("DELETE /api/v1/inbox", app.apiV1InboxClearHandler)
 	mux.HandleFunc("GET /api/v1/message/{id}", app.apiV1MessageHandler)
 	mux.HandleFunc("PATCH /api/v1/message/{id}", app.apiV1MessageUpdateHandler)

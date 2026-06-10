@@ -1,6 +1,8 @@
 package web
 
 import (
+	"bufio"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
@@ -11,6 +13,48 @@ import (
 
 	"mirage/internal/mailbox"
 )
+
+func TestAPIV1EventsStreamsStoreEvents(t *testing.T) {
+	store := mailbox.NewStore()
+	mux := http.NewServeMux()
+	Register(mux, store)
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/api/v1/events", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", res.StatusCode)
+	}
+	if !strings.Contains(res.Header.Get("Content-Type"), "text/event-stream") {
+		t.Fatalf("expected event stream content type, got %q", res.Header.Get("Content-Type"))
+	}
+
+	store.Add(mailbox.Message{Subject: "streamed"})
+
+	scanner := bufio.NewScanner(res.Body)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "event: message-added") {
+			return
+		}
+	}
+	if err := scanner.Err(); err != nil && ctx.Err() == nil {
+		t.Fatal(err)
+	}
+	t.Fatal("expected message-added event")
+}
 
 func TestAPIV1InboxPaginatesAndOmitsBodies(t *testing.T) {
 	store := mailbox.NewStore()

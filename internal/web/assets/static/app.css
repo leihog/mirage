@@ -96,6 +96,13 @@ svg { display: block; width: 17px; height: 17px; fill: none; stroke: currentColo
 .hero-bar { height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px 0 16px; background: var(--hero-bg); color: var(--hero-text); border-bottom: 1px solid var(--hero-border); }
 .brand-link { display: inline-flex; align-items: center; width: 142px; height: 40px; min-width: 0; }
 .brand-link img { display: block; width: 100%; height: auto; max-height: 40px; }
+.hero-actions { display: flex; align-items: center; gap: 10px; }
+.connection-status { display: inline-flex; align-items: center; gap: 7px; min-height: 28px; padding: 0 10px; border: 1px solid var(--hero-control-border); border-radius: 999px; background: var(--hero-control-bg); color: rgb(255 255 255 / 0.72); font: 700 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.connection-dot { width: 8px; height: 8px; border-radius: 999px; background: #f4c56d; box-shadow: 0 0 0 3px rgb(244 197 109 / 0.14); }
+.connection-status[data-connection-status="connected"] { color: var(--hero-text); border-color: rgb(54 226 126 / 0.48); }
+.connection-status[data-connection-status="connected"] .connection-dot { background: var(--accent); box-shadow: 0 0 0 3px rgb(54 226 126 / 0.16); }
+.connection-status[data-connection-status="disconnected"] { color: rgb(255 255 255 / 0.66); border-color: rgb(240 164 164 / 0.42); }
+.connection-status[data-connection-status="disconnected"] .connection-dot { background: #f0a4a4; box-shadow: 0 0 0 3px rgb(240 164 164 / 0.13); }
 .hero-bar .icon-button { border-color: var(--hero-control-border); background: var(--hero-control-bg); color: var(--hero-text); }
 .hero-bar .icon-button:hover, .hero-bar .icon-button:focus-visible { background: var(--hero-control-bg-hover); border-color: var(--accent); color: var(--accent); }
 .layout { display: grid; grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); min-height: calc(100vh - 56px); }
@@ -232,6 +239,8 @@ pre { margin: 0; padding: 18px; white-space: pre-wrap; overflow-wrap: anywhere; 
 code { background: var(--surface-subtle); border-radius: 4px; padding: 2px 5px; }
 
 @media (max-width: 760px) {
+  .connection-status { width: 28px; padding: 0; justify-content: center; }
+  .connection-status [data-connection-label] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .layout { grid-template-columns: 1fr; }
   .list { border-right: 0; border-bottom: 1px solid var(--border); max-height: 42vh; overflow: auto; }
   .inbox-header { min-height: 68px; }
