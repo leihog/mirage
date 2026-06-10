@@ -28,7 +28,7 @@
         {{if .Selected.Cc}}<div><dt>Cc</dt><dd class="address-value">{{join .Selected.Cc}}</dd></div>{{end}}
         <div><dt>Subject</dt><dd><strong>{{if .Selected.Subject}}{{.Selected.Subject}}{{else}}(no subject){{end}}</strong></dd></div>
         <div><dt>Date</dt><dd><time datetime="{{utcTime .Selected.CreatedAt}}" data-timestamp="{{utcTime .Selected.CreatedAt}}" data-timestamp-format="datetime">{{utcDateTime .Selected.CreatedAt}}</time> <span class="size">({{messageSize .Selected}})</span></dd></div>
-        <div><dt>Provider</dt><dd>{{.Selected.Provider}} / {{.Selected.Domain}}</dd></div>
+        <div><dt>Provider</dt><dd>{{.Selected.Provider}}{{if .Selected.Domain}} / {{.Selected.Domain}}{{end}}</dd></div>
       </dl>
     </header>
     <nav class="tabs" aria-label="Message views">

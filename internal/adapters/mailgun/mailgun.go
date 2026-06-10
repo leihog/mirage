@@ -6,10 +6,10 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"net/mail"
 	"sort"
 	"strings"
 
+	"github.com/leihog/mirage/internal/ingest"
 	"github.com/leihog/mirage/internal/mailbox"
 	mailmime "github.com/leihog/mirage/internal/mime"
 )
@@ -81,12 +81,12 @@ func handleMIMEMessage(w http.ResponseWriter, r *http.Request, store Store) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		msg, err := parseMIME(raw)
+		msg, err := ingest.ParseRaw(raw)
 		if err != nil {
 			http.Error(w, "invalid MIME message: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		raw = sanitizeSubmittedMIME(raw)
+		raw = ingest.SanitizeRaw(raw)
 		msg.Provider = "mailgun"
 		msg.Domain = r.PathValue("domain")
 		msg.Raw = raw
@@ -108,12 +108,12 @@ func handleMIMEMessage(w http.ResponseWriter, r *http.Request, store Store) {
 		http.Error(w, "failed to read body: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	msg, err := parseMIME(raw)
+	msg, err := ingest.ParseRaw(raw)
 	if err != nil {
 		http.Error(w, "invalid MIME message: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	raw = sanitizeSubmittedMIME(raw)
+	raw = ingest.SanitizeRaw(raw)
 	msg.Provider = "mailgun"
 	msg.Domain = r.PathValue("domain")
 	msg.Raw = raw
@@ -203,36 +203,6 @@ func firstUploadedFile(form *multipart.Form, field string) ([]byte, string, erro
 	return raw, header.Filename, err
 }
 
-func parseMIME(raw []byte) (mailbox.Message, error) {
-	parsed, err := mailmime.Parse(raw)
-	if err != nil {
-		return mailbox.Message{}, err
-	}
-
-	msg := mailbox.Message{
-		From:        parsed.From,
-		To:          parsed.To,
-		Cc:          parsed.Cc,
-		Bcc:         parsed.Bcc,
-		Subject:     parsed.Subject,
-		Text:        parsed.Text,
-		HTML:        parsed.HTML,
-		Headers:     submittedMIMEHeaders(parsed.Headers),
-		Attachments: make([]mailbox.Attachment, 0, len(parsed.Attachments)),
-	}
-	for _, attachment := range parsed.Attachments {
-		msg.Attachments = append(msg.Attachments, mailbox.Attachment{
-			Name:        attachment.Name,
-			ContentType: attachment.ContentType,
-			Size:        attachment.Size,
-			ContentID:   attachment.ContentID,
-			Inline:      attachment.Inline,
-			Data:        attachment.Data,
-		})
-	}
-	return msg, nil
-}
-
 func sendableHeaders(headers map[string]string) map[string]string {
 	out := map[string]string{}
 	for key, value := range headers {
@@ -242,54 +212,6 @@ func sendableHeaders(headers map[string]string) map[string]string {
 		out[key] = value
 	}
 	return out
-}
-
-func submittedMIMEHeaders(headers map[string]string) map[string]string {
-	out := map[string]string{}
-	for key, value := range headers {
-		if blockedSubmittedMIMEHeader(key) {
-			continue
-		}
-		out[key] = value
-	}
-	return out
-}
-
-func sanitizeSubmittedMIME(raw []byte) []byte {
-	parsed, err := mail.ReadMessage(strings.NewReader(string(raw)))
-	if err != nil {
-		return raw
-	}
-
-	var out strings.Builder
-	keys := make([]string, 0, len(parsed.Header))
-	for key := range parsed.Header {
-		if blockedSubmittedMIMEHeader(key) {
-			continue
-		}
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		for _, value := range parsed.Header[key] {
-			out.WriteString(key)
-			out.WriteString(": ")
-			out.WriteString(value)
-			out.WriteString("\r\n")
-		}
-	}
-	out.WriteString("\r\n")
-	_, _ = io.Copy(&out, parsed.Body)
-	return []byte(out.String())
-}
-
-func blockedSubmittedMIMEHeader(key string) bool {
-	switch strings.ToLower(strings.TrimSpace(key)) {
-	case "delivered-to", "received", "return-path":
-		return true
-	default:
-		return false
-	}
 }
 
 func blockedGeneratedFormHeader(key string) bool {
