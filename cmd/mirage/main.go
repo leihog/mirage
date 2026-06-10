@@ -12,9 +12,9 @@ import (
 	"syscall"
 	"time"
 
-	"mirage/internal/adapters/mailgun"
-	"mirage/internal/mailbox"
-	"mirage/internal/web"
+	"github.com/leihog/mirage/internal/adapters/mailgun"
+	"github.com/leihog/mirage/internal/mailbox"
+	"github.com/leihog/mirage/internal/web"
 )
 
 func main() {

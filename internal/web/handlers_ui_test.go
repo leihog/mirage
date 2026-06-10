@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"mirage/internal/mailbox"
+	"github.com/leihog/mirage/internal/mailbox"
 )
 
 func TestHTMLHandlerResolvesCIDImageReferences(t *testing.T) {

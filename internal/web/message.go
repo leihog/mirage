@@ -3,8 +3,8 @@ package web
 import (
 	"strings"
 
-	"mirage/internal/mailbox"
-	mailmime "mirage/internal/mime"
+	"github.com/leihog/mirage/internal/mailbox"
+	mailmime "github.com/leihog/mirage/internal/mime"
 )
 
 func messageBody(msg mailbox.Message, part string) (string, string, bool) {

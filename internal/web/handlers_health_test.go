@@ -1,7 +1,7 @@
 package web
 
 import (
-	"mirage/internal/mailbox"
+	"github.com/leihog/mirage/internal/mailbox"
 	"net/http"
 	"net/http/httptest"
 	"testing"

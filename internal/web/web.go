@@ -7,7 +7,7 @@ import (
 	"io/fs"
 	"net/http"
 
-	"mirage/internal/mailbox"
+	"github.com/leihog/mirage/internal/mailbox"
 )
 
 //go:embed assets/templates/*.html assets/static/*

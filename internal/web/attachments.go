@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"mirage/internal/mailbox"
+	"github.com/leihog/mirage/internal/mailbox"
 )
 
 var cidURLPattern = regexp.MustCompile(`(?i)\b(src|href)\s*=\s*(['"]?)cid:([^'"\s>]+)(['"]?)`)

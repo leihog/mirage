@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"mirage/internal/mailbox"
+	"github.com/leihog/mirage/internal/mailbox"
 )
 
 func (a *app) indexHandler(w http.ResponseWriter, r *http.Request) {

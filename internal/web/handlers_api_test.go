@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"mirage/internal/mailbox"
+	"github.com/leihog/mirage/internal/mailbox"
 )
 
 func TestAPIV1EventsStreamsStoreEvents(t *testing.T) {

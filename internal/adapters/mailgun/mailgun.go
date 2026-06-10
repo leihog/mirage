@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
-	"mirage/internal/mailbox"
-	mailmime "mirage/internal/mime"
+	"github.com/leihog/mirage/internal/mailbox"
+	mailmime "github.com/leihog/mirage/internal/mime"
 )
 
 const maxRequestBody = 32 << 20

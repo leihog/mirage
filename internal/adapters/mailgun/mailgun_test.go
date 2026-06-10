@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"mirage/internal/mailbox"
+	"github.com/leihog/mirage/internal/mailbox"
 )
 
 func TestMessagesEndpointCapturesFormMessage(t *testing.T) {

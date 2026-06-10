@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"mirage/internal/html"
-	"mirage/internal/mailbox"
+	"github.com/leihog/mirage/internal/html"
+	"github.com/leihog/mirage/internal/mailbox"
 )
 
 type headerRow struct {

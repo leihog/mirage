@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/http"
 
-	"mirage/internal/mailbox"
+	"github.com/leihog/mirage/internal/mailbox"
 )
 
 func apiNotFoundHandler(w http.ResponseWriter, r *http.Request) {

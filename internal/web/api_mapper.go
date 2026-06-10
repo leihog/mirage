@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"mirage/internal/mailbox"
+	"github.com/leihog/mirage/internal/mailbox"
 )
 
 func summarizeMessage(msg mailbox.Message, includeHeaders bool) messageSummary {

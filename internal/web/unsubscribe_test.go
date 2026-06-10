@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"mirage/internal/mailbox"
+	"github.com/leihog/mirage/internal/mailbox"
 )
 
 func TestUnsubscribeActionRequiresOneClickPostHeader(t *testing.T) {
