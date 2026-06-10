@@ -64,11 +64,32 @@ func funcs() template.FuncMap {
 			}
 			return fmt.Sprintf("%.1f kB", float64(size)/1024)
 		},
+		"hasHTML":     hasHTML,
+		"hasText":     hasText,
+		"activeTab":   activeTab,
 		"htmlSource":  htmlSource,
 		"unsubscribe": unsubscribeAction,
 		"rawMessage":  rawMessage,
 		"headerRows":  headerRows,
 	}
+}
+
+func hasHTML(msg mailbox.Message) bool {
+	return strings.TrimSpace(msg.HTML) != ""
+}
+
+func hasText(msg mailbox.Message) bool {
+	return strings.TrimSpace(msg.Text) != ""
+}
+
+func activeTab(msg mailbox.Message) string {
+	if hasHTML(msg) {
+		return "html"
+	}
+	if hasText(msg) {
+		return "text"
+	}
+	return "raw"
 }
 
 func mailboxLine(messages []mailbox.Message) string {

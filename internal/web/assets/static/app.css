@@ -150,6 +150,8 @@ dd { margin: 0; overflow-wrap: anywhere; }
 .tab { border: 0; border-bottom: 2px solid transparent; background: transparent; padding: 12px 16px 10px; color: var(--text); white-space: nowrap; }
 .tab:hover, .tab:focus-visible { color: var(--accent-strong); }
 .tab.active { color: var(--accent-strong); border-bottom-color: var(--accent); }
+.tab:disabled { cursor: not-allowed; color: var(--text-muted); opacity: 0.48; }
+.tab:disabled:hover, .tab:disabled:focus-visible { color: var(--text-muted); }
 .tab-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex: 0 0 auto; padding-left: 12px; }
 .tab-actions [hidden] { display: none; }
 .tab-download { color: var(--text-soft); }

@@ -1,4 +1,7 @@
 {{define "content"}}
+{{ $activeTab := activeTab .Selected }}
+{{ $hasHTML := hasHTML .Selected }}
+{{ $hasText := hasText .Selected }}
 <main class="layout">
   {{template "messageList" .}}
   <article class="detail">
@@ -29,11 +32,11 @@
       </dl>
     </header>
     <nav class="tabs" aria-label="Message views">
-      <button class="tab active" type="button" data-tab="html">HTML</button>
-      <button class="tab" type="button" data-tab="source">HTML Source</button>
-      <button class="tab" type="button" data-tab="text">Text</button>
+      <button class="tab {{if eq $activeTab "html"}}active{{end}}" type="button" data-tab="html" {{if not $hasHTML}}disabled aria-disabled="true" title="This email does not include an HTML body"{{end}}>HTML</button>
+      <button class="tab" type="button" data-tab="source" {{if not $hasHTML}}disabled aria-disabled="true" title="This email does not include an HTML body"{{end}}>HTML Source</button>
+      {{if $hasText}}<button class="tab {{if eq $activeTab "text"}}active{{end}}" type="button" data-tab="text">Text</button>{{end}}
       <button class="tab" type="button" data-tab="headers">Headers</button>
-      <button class="tab" type="button" data-tab="raw">Raw</button>
+      <button class="tab {{if eq $activeTab "raw"}}active{{end}}" type="button" data-tab="raw">Raw</button>
       <div class="tab-actions">
         <a class="icon-button tab-download" href="/api/v1/message/{{.Selected.ID}}/body/html?download=1" download="message-{{.Selected.ID}}.html" data-tab-download hidden title="Download HTML source" aria-label="Download HTML source">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.75v11M7.25 10.25 12 15l4.75-4.75M4.75 20.25h14.5"/></svg>
@@ -51,7 +54,7 @@
         </div>
       </div>
     </nav>
-    <section id="tab-html" class="panel preview tab-panel active">
+    <section id="tab-html" class="panel preview tab-panel {{if eq $activeTab "html"}}active{{end}}">
       <div class="preview-canvas" data-preview-canvas>
         <iframe title="Email preview" src="/messages/{{.Selected.ID}}/html" sandbox=""></iframe>
       </div>
@@ -59,9 +62,11 @@
     <section id="tab-source" class="panel code-panel tab-panel">
       <pre class="html-source">{{htmlSource .Selected}}</pre>
     </section>
-    <section id="tab-text" class="panel code-panel tab-panel">
+    {{if $hasText}}
+    <section id="tab-text" class="panel code-panel tab-panel {{if eq $activeTab "text"}}active{{end}}">
       <pre>{{.Selected.Text}}</pre>
     </section>
+    {{end}}
     <section id="tab-headers" class="panel headers-panel tab-panel">
       {{range headerRows .Selected}}<div><strong>{{.Key}}</strong><span>{{.Value}}</span></div>{{end}}
       {{if .Selected.Attachments}}
@@ -69,7 +74,7 @@
       {{range .Selected.Attachments}}<div><strong>{{.Name}}</strong><span>{{.ContentType}} {{.Size}} bytes</span></div>{{end}}
       {{end}}
     </section>
-    <section id="tab-raw" class="panel code-panel tab-panel">
+    <section id="tab-raw" class="panel code-panel tab-panel {{if eq $activeTab "raw"}}active{{end}}">
       <pre>{{rawMessage .Selected}}</pre>
     </section>
   </article>

@@ -108,3 +108,93 @@ func TestMessageDetailDateUsesDisplayTimestampAndHeadersUseRawDate(t *testing.T)
 		t.Fatalf("expected headers tab to keep raw Date header: %s", res.Body.String())
 	}
 }
+
+func TestMessageDetailUsesTextTabWhenHTMLBodyIsMissing(t *testing.T) {
+	store := mailbox.NewStore()
+	msg := store.Add(mailbox.Message{
+		Subject: "text only",
+		Text:    "plain text body",
+	})
+
+	mux := http.NewServeMux()
+	Register(mux, store)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/messages/"+msg.ID, nil)
+	mux.ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", res.Code, res.Body.String())
+	}
+
+	body := res.Body.String()
+	if !strings.Contains(body, `data-tab="html" disabled aria-disabled="true"`) {
+		t.Fatalf("expected HTML tab to be disabled: %s", body)
+	}
+	if !strings.Contains(body, `data-tab="source" disabled aria-disabled="true"`) {
+		t.Fatalf("expected HTML Source tab to be disabled: %s", body)
+	}
+	if !strings.Contains(body, `class="tab active" type="button" data-tab="text"`) {
+		t.Fatalf("expected Text tab to be active: %s", body)
+	}
+	if !strings.Contains(body, `id="tab-text" class="panel code-panel tab-panel active"`) {
+		t.Fatalf("expected Text panel to be active: %s", body)
+	}
+	if strings.Contains(body, `id="tab-html" class="panel preview tab-panel active"`) {
+		t.Fatalf("HTML panel should not be active without HTML: %s", body)
+	}
+}
+
+func TestMessageDetailHidesTextTabWhenTextBodyIsMissing(t *testing.T) {
+	store := mailbox.NewStore()
+	msg := store.Add(mailbox.Message{
+		Subject: "html only",
+		HTML:    "<p>html body</p>",
+	})
+
+	mux := http.NewServeMux()
+	Register(mux, store)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/messages/"+msg.ID, nil)
+	mux.ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", res.Code, res.Body.String())
+	}
+
+	body := res.Body.String()
+	if !strings.Contains(body, `class="tab active" type="button" data-tab="html"`) {
+		t.Fatalf("expected HTML tab to be active: %s", body)
+	}
+	if strings.Contains(body, `data-tab="text"`) {
+		t.Fatalf("expected Text tab to be hidden: %s", body)
+	}
+	if strings.Contains(body, `id="tab-text"`) {
+		t.Fatalf("expected Text panel to be hidden: %s", body)
+	}
+}
+
+func TestMessageDetailFallsBackToRawTabWhenNoRenderedBodiesExist(t *testing.T) {
+	store := mailbox.NewStore()
+	msg := store.Add(mailbox.Message{Subject: "headers only"})
+
+	mux := http.NewServeMux()
+	Register(mux, store)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/messages/"+msg.ID, nil)
+	mux.ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", res.Code, res.Body.String())
+	}
+
+	body := res.Body.String()
+	if !strings.Contains(body, `class="tab active" type="button" data-tab="raw"`) {
+		t.Fatalf("expected Raw tab to be active: %s", body)
+	}
+	if strings.Contains(body, `data-tab="text"`) {
+		t.Fatalf("expected Text tab to be hidden: %s", body)
+	}
+	if strings.Contains(body, `id="tab-html" class="panel preview tab-panel active"`) {
+		t.Fatalf("HTML panel should not be active without HTML: %s", body)
+	}
+}
