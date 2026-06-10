@@ -1,7 +1,6 @@
 package web
 
 import (
-	"bytes"
 	"embed"
 	"encoding/base64"
 	"encoding/json"
@@ -20,6 +19,7 @@ import (
 
 	"mirage/internal/html"
 	"mirage/internal/mailbox"
+	mailmime "mirage/internal/mime"
 )
 
 //go:embed assets/templates/*.html assets/static/*
@@ -978,54 +978,33 @@ func rawMessage(msg mailbox.Message) string {
 	if len(msg.Raw) > 0 {
 		return string(msg.Raw)
 	}
+	return mailmime.Generate(mailmime.Message{
+		From:        msg.From,
+		To:          msg.To,
+		Cc:          msg.Cc,
+		Bcc:         msg.Bcc,
+		Subject:     msg.Subject,
+		Headers:     msg.Headers,
+		Text:        msg.Text,
+		HTML:        msg.HTML,
+		Attachments: mimeAttachments(msg.Attachments),
+	}, mailmime.GenerateOptions{
+		ID:        msg.ID,
+		CreatedAt: msg.CreatedAt,
+	})
+}
 
-	var buf bytes.Buffer
-	writeHeader := func(key, value string) {
-		if strings.TrimSpace(value) != "" {
-			fmt.Fprintf(&buf, "%s: %s\r\n", key, value)
-		}
+func mimeAttachments(attachments []mailbox.Attachment) []mailmime.Attachment {
+	out := make([]mailmime.Attachment, 0, len(attachments))
+	for _, attachment := range attachments {
+		out = append(out, mailmime.Attachment{
+			Name:        attachment.Name,
+			ContentType: attachment.ContentType,
+			Size:        attachment.Size,
+			ContentID:   attachment.ContentID,
+			Inline:      attachment.Inline,
+			Data:        attachment.Data,
+		})
 	}
-
-	writeHeader("From", msg.From)
-	writeHeader("To", strings.Join(msg.To, ", "))
-	writeHeader("Cc", strings.Join(msg.Cc, ", "))
-	writeHeader("Bcc", strings.Join(msg.Bcc, ", "))
-	writeHeader("Subject", msg.Subject)
-	writeHeader("Date", msg.CreatedAt.UTC().Format(time.RFC1123Z))
-
-	keys := make([]string, 0, len(msg.Headers))
-	for key := range msg.Headers {
-		lower := strings.ToLower(key)
-		if lower == "from" || lower == "to" || lower == "cc" || lower == "bcc" || lower == "subject" || lower == "date" {
-			continue
-		}
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		writeHeader(key, msg.Headers[key])
-	}
-
-	if strings.TrimSpace(msg.HTML) != "" && strings.TrimSpace(msg.Text) != "" {
-		boundary := "mirage-local-boundary"
-		writeHeader("Content-Type", `multipart/alternative; boundary="`+boundary+`"`)
-		buf.WriteString("\r\n--" + boundary + "\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n")
-		buf.WriteString(msg.Text)
-		buf.WriteString("\r\n--" + boundary + "\r\nContent-Type: text/html; charset=utf-8\r\n\r\n")
-		buf.WriteString(msg.HTML)
-		buf.WriteString("\r\n--" + boundary + "--\r\n")
-		return buf.String()
-	}
-
-	if strings.TrimSpace(msg.HTML) != "" {
-		writeHeader("Content-Type", "text/html; charset=utf-8")
-		buf.WriteString("\r\n")
-		buf.WriteString(msg.HTML)
-		return buf.String()
-	}
-
-	writeHeader("Content-Type", "text/plain; charset=utf-8")
-	buf.WriteString("\r\n")
-	buf.WriteString(msg.Text)
-	return buf.String()
+	return out
 }

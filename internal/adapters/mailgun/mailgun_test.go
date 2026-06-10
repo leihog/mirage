@@ -158,13 +158,19 @@ func TestMIMEEndpointStripsReceivedOnlyHeaders(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", res.Code, res.Body.String())
 	}
 	msg := store.List()[0]
-	for _, key := range []string{"Return-Path", "Received", "Delivered-To", "Date", "Message-ID"} {
+	for _, key := range []string{"Return-Path", "Received", "Delivered-To"} {
 		if _, ok := msg.Headers[key]; ok {
 			t.Fatalf("expected %s to be stripped from headers: %#v", key, msg.Headers)
 		}
 		if strings.Contains(string(msg.Raw), key+":") {
 			t.Fatalf("expected %s to be stripped from raw MIME: %s", key, string(msg.Raw))
 		}
+	}
+	if msg.Headers["Date"] != "Tue, 09 Jun 2026 08:15:00 +0000" || msg.Headers["Message-Id"] != "<client-supplied@example.com>" {
+		t.Fatalf("expected Date and Message-ID to be preserved: %#v", msg.Headers)
+	}
+	if !strings.Contains(string(msg.Raw), "Date: Tue, 09 Jun 2026 08:15:00 +0000") || !strings.Contains(string(msg.Raw), "Message-Id: <client-supplied@example.com>") {
+		t.Fatalf("expected Date and Message-ID to be preserved in raw MIME: %s", string(msg.Raw))
 	}
 	if msg.Headers["X-Test"] != "kept" || !strings.Contains(string(msg.Raw), "X-Test: kept") {
 		t.Fatalf("expected custom sendable header to remain: %#v raw=%s", msg.Headers, string(msg.Raw))

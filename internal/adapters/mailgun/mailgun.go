@@ -217,7 +217,7 @@ func parseMIME(raw []byte) (mailbox.Message, error) {
 		Subject:     parsed.Subject,
 		Text:        parsed.Text,
 		HTML:        parsed.HTML,
-		Headers:     sendableHeaders(parsed.Headers),
+		Headers:     submittedMIMEHeaders(parsed.Headers),
 		Attachments: make([]mailbox.Attachment, 0, len(parsed.Attachments)),
 	}
 	for _, attachment := range parsed.Attachments {
@@ -234,6 +234,17 @@ func parseMIME(raw []byte) (mailbox.Message, error) {
 }
 
 func sendableHeaders(headers map[string]string) map[string]string {
+	out := map[string]string{}
+	for key, value := range headers {
+		if blockedGeneratedFormHeader(key) {
+			continue
+		}
+		out[key] = value
+	}
+	return out
+}
+
+func submittedMIMEHeaders(headers map[string]string) map[string]string {
 	out := map[string]string{}
 	for key, value := range headers {
 		if blockedSubmittedMIMEHeader(key) {
@@ -273,6 +284,15 @@ func sanitizeSubmittedMIME(raw []byte) []byte {
 }
 
 func blockedSubmittedMIMEHeader(key string) bool {
+	switch strings.ToLower(strings.TrimSpace(key)) {
+	case "delivered-to", "received", "return-path":
+		return true
+	default:
+		return false
+	}
+}
+
+func blockedGeneratedFormHeader(key string) bool {
 	switch strings.ToLower(strings.TrimSpace(key)) {
 	case "date", "delivered-to", "message-id", "received", "return-path":
 		return true
