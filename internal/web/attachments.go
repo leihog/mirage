@@ -1,6 +1,7 @@
 package web
 
 import (
+	stdmime "mime"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -27,12 +28,15 @@ func attachmentByIndex(msg mailbox.Message, rawIndex string) (mailbox.Attachment
 func writeAttachment(w http.ResponseWriter, attachment mailbox.Attachment) {
 	w.Header().Set("Content-Type", attachmentContentType(attachment))
 	w.Header().Set("Content-Length", strconv.Itoa(len(attachment.Data)))
+	w.Header().Set("Content-Security-Policy", "sandbox")
 	if attachment.Name != "" {
 		disposition := "attachment"
 		if attachment.Inline {
 			disposition = "inline"
 		}
-		w.Header().Set("Content-Disposition", disposition+`; filename="`+strings.ReplaceAll(attachment.Name, `"`, `\"`)+`"`)
+		if value := stdmime.FormatMediaType(disposition, map[string]string{"filename": attachment.Name}); value != "" {
+			w.Header().Set("Content-Disposition", value)
+		}
 	}
 	_, _ = w.Write(attachment.Data)
 }

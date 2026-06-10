@@ -55,6 +55,49 @@ func TestHTMLHandlerResolvesCIDImageReferences(t *testing.T) {
 	}
 }
 
+func TestUnknownPathsReturnNotFound(t *testing.T) {
+	store := mailbox.NewStore()
+	mux := http.NewServeMux()
+	Register(mux, store)
+
+	for _, path := range []string{"/nope", "/messages/", "/favicon.ico"} {
+		res := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		mux.ServeHTTP(res, req)
+		if res.Code != http.StatusNotFound {
+			t.Fatalf("expected 404 for %s, got %d", path, res.Code)
+		}
+	}
+}
+
+func TestAttachmentDispositionQuotesFilename(t *testing.T) {
+	store := mailbox.NewStore()
+	msg := store.Add(mailbox.Message{
+		Attachments: []mailbox.Attachment{{
+			Name:        `report".html\`,
+			ContentType: "text/html",
+			Data:        []byte("<p>attachment</p>"),
+		}},
+	})
+
+	mux := http.NewServeMux()
+	Register(mux, store)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/messages/"+msg.ID+"/attachments/0", nil)
+	mux.ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", res.Code, res.Body.String())
+	}
+	if res.Header().Get("Content-Security-Policy") != "sandbox" {
+		t.Fatalf("expected sandbox CSP on attachment, got %q", res.Header().Get("Content-Security-Policy"))
+	}
+	wantDisposition := `attachment; filename="report\".html\\"`
+	if disposition := res.Header().Get("Content-Disposition"); disposition != wantDisposition {
+		t.Fatalf("unexpected content disposition: %q", disposition)
+	}
+}
+
 func TestMessageListRendersUTCTimestampForClientConversion(t *testing.T) {
 	store := mailbox.NewStore()
 	msg := store.Add(mailbox.Message{Subject: "timestamp"})
