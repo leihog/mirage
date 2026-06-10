@@ -41,7 +41,7 @@ func Register(mux *http.ServeMux, store Store) {
 		panic(err)
 	}
 
-	mux.HandleFunc("GET /", app.indexHandler)
+	mux.HandleFunc("GET /{$}", app.indexHandler)
 	mux.HandleFunc("GET /healthz", healthzHandler)
 	mux.HandleFunc("GET /messages/{id}", app.showHandler)
 	mux.HandleFunc("GET /messages/{id}/html", app.htmlHandler)
