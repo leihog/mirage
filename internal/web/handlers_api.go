@@ -143,6 +143,7 @@ func (a *app) apiV1MessageBodyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Security-Policy", "sandbox")
 	if r.URL.Query().Get("download") == "1" {
 		w.Header().Set("Content-Disposition", `attachment; filename="`+messageBodyFilename(msg, part)+`"`)
 	}

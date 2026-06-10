@@ -37,6 +37,9 @@ func TestHTMLHandlerResolvesCIDImageReferences(t *testing.T) {
 	if !strings.Contains(res.Body.String(), `src="`+wantURL+`"`) {
 		t.Fatalf("expected CID URL to be rewritten to %s, got %s", wantURL, res.Body.String())
 	}
+	if res.Header().Get("Content-Security-Policy") != "sandbox" {
+		t.Fatalf("expected sandbox CSP on html view, got %q", res.Header().Get("Content-Security-Policy"))
+	}
 
 	res = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, wantURL, nil)

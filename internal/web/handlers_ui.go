@@ -45,6 +45,7 @@ func (a *app) htmlHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Security-Policy", "sandbox")
 	if strings.TrimSpace(msg.HTML) != "" {
 		_, _ = w.Write([]byte(resolveCIDURLs(msg)))
 		return
