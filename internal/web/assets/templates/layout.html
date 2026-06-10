@@ -64,19 +64,42 @@
 
   <dialog class="unsubscribe-modal" aria-labelledby="unsubscribe-title">
     <header>
-      <h2 id="unsubscribe-title">Unsubscribe</h2>
+      <div>
+        <h2 id="unsubscribe-title">Unsubscribe request</h2>
+        <p>Inspect the one-click POST before sending it.</p>
+      </div>
+      <button class="icon-button" type="button" data-unsubscribe-close title="Close unsubscribe inspector" aria-label="Close unsubscribe inspector">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
     </header>
     <section class="unsubscribe-body">
-      <dl class="result-list">
-        <div><dt>URL</dt><dd data-unsubscribe-url></dd></div>
-        <div><dt>Result</dt><dd data-unsubscribe-result></dd></div>
-        <div><dt>Status</dt><dd data-unsubscribe-status></dd></div>
-      </dl>
-      <pre class="json-result" data-unsubscribe-json hidden></pre>
+      <section class="unsubscribe-pane request-pane">
+        <div class="pane-head">
+          <h3>Request</h3>
+          <div class="pane-actions">
+            <button class="icon-button terminal-button" type="button" data-unsubscribe-copy-curl  title="Copy as cURL" aria-label="Copy as cURL"><span aria-hidden="true">&gt;_</span></button>
+            <button class="secondary-button" type="button" data-unsubscribe-send>POST</button>
+          </div>
+        </div>
+        <dl class="request-grid">
+          <div><dt>Method</dt><dd>POST</dd></div>
+          <div><dt>URL</dt><dd data-unsubscribe-url></dd></div>
+          <div><dt>Headers</dt><dd><code>Content-Type: application/x-www-form-urlencoded</code></dd></div>
+          <div><dt>Body</dt><dd><code>List-Unsubscribe=One-Click</code></dd></div>
+        </dl>
+      </section>
+      <section class="unsubscribe-pane response-pane" data-unsubscribe-response hidden>
+        <div class="pane-head">
+          <h3>Response</h3>
+          <div class="response-meta">
+            <span class="status-pill" data-unsubscribe-status>Not sent</span>
+            <span data-unsubscribe-time></span>
+            <span data-unsubscribe-size></span>
+          </div>
+        </div>
+        <pre class="response-code" data-unsubscribe-output></pre>
+      </section>
     </section>
-    <footer>
-      <button class="secondary-button" type="button" data-unsubscribe-ok>OK</button>
-    </footer>
   </dialog>
 </body>
 </html>

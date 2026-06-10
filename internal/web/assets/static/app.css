@@ -183,9 +183,11 @@ pre { margin: 0; padding: 18px; white-space: pre-wrap; overflow-wrap: anywhere; 
 .headers-panel h3 { margin: 0; padding: 14px; font-size: 14px; border-bottom: 1px solid var(--border); }
 .placeholder { display: grid; align-content: center; justify-items: center; color: var(--text-soft); }
 .settings-modal, .unsubscribe-modal { width: min(460px, calc(100vw - 32px)); border: 1px solid var(--border); border-radius: 8px; padding: 0; color: var(--text); background: var(--surface); box-shadow: 0 24px 70px var(--modal-shadow); }
+.unsubscribe-modal { width: min(920px, calc(100vw - 32px)); max-height: min(760px, calc(100vh - 32px)); overflow: hidden; }
 .settings-modal::backdrop, .unsubscribe-modal::backdrop { background: var(--backdrop); }
 .settings-modal header, .unsubscribe-modal header { min-height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
 .settings-modal h2, .unsubscribe-modal h2 { margin: 0; font-size: 18px; letter-spacing: 0; }
+.unsubscribe-modal header p { margin: 3px 0 0; color: var(--text-soft); font-size: 12px; }
 .settings-body { display: grid; gap: 14px; padding: 14px; }
 .setting-group { margin: 0; padding: 0; border: 0; }
 .setting-group legend { margin-bottom: 8px; color: var(--text-soft); font-size: 13px; }
@@ -198,7 +200,26 @@ pre { margin: 0; padding: 18px; white-space: pre-wrap; overflow-wrap: anywhere; 
 .setting-toggle { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 7px 9px; border: 1px solid var(--border-control); border-radius: 6px; background: var(--surface); color: var(--text); }
 .setting-toggle:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
 .setting-toggle input { margin: 0; accent-color: var(--accent); }
-.unsubscribe-body { padding: 14px; }
+.unsubscribe-body { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px; max-height: calc(100vh - 112px); padding: 14px; overflow: auto; }
+.unsubscribe-pane { border: 1px solid var(--border); border-radius: 8px; background: var(--surface-subtle); overflow: hidden; }
+.pane-head { min-height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.pane-head h3 { margin: 0; font-size: 14px; letter-spacing: 0; }
+.pane-actions { display: flex; align-items: center; gap: 8px; }
+.request-grid { display: grid; gap: 0; max-width: none; }
+.request-grid div { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--border-soft); }
+.request-grid div:last-child { border-bottom: 0; }
+.request-grid dd { min-width: 0; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+.response-pane { min-height: 260px; }
+.response-meta { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px; color: var(--text-soft); font-size: 12px; }
+.status-pill { display: inline-flex; align-items: center; min-height: 24px; padding: 2px 8px; border: 1px solid var(--border-control); border-radius: 999px; color: var(--text-meta); background: var(--surface); font: 700 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.status-pill.success { border-color: #86d9a1; background: #eaf8ef; color: #166534; }
+.status-pill.warning { border-color: #f4c56d; background: #fff7e6; color: #92400e; }
+.status-pill.error { border-color: #f0a4a4; background: #fff1f1; color: var(--danger); }
+.status-pill.pending { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-strong); }
+:root[data-theme="dark"] .status-pill.success { border-color: #2d7a4c; background: #143421; color: #86efac; }
+:root[data-theme="dark"] .status-pill.warning { border-color: #8a641b; background: #3a2b10; color: #facc15; }
+:root[data-theme="dark"] .status-pill.error { border-color: #7f3338; background: #3a171a; color: #fca5a5; }
+.response-code { min-height: 214px; max-height: 420px; overflow: auto; border: 0; background: var(--surface-code); }
 .unsubscribe-modal footer { display: flex; justify-content: flex-end; padding: 12px 14px; border-top: 1px solid var(--border); }
 .result-list { gap: 8px; }
 .result-list div { grid-template-columns: 74px minmax(0, 1fr); }

@@ -20,6 +20,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const previewButtons = Array.from(document.querySelectorAll("[data-preview-mode]"));
   const previewWidthControl = document.querySelector("[data-preview-width]");
   const tabDownload = document.querySelector("[data-tab-download]");
+  const unsubscribeOpen = document.querySelector("[data-unsubscribe-open]");
+  const unsubscribeSend = document.querySelector("[data-unsubscribe-send]");
+  const unsubscribeCopyCurl = document.querySelector("[data-unsubscribe-copy-curl]");
 
   function themeChoice() {
     const stored = localStorage.getItem(themeKey);
@@ -220,7 +223,10 @@ document.addEventListener("DOMContentLoaded", () => {
   settingsModal?.addEventListener("click", (event) => {
     if (event.target === settingsModal) settingsModal.close();
   });
-  document.querySelector("[data-unsubscribe-ok]")?.addEventListener("click", () => unsubscribeModal?.close());
+  document.querySelector("[data-unsubscribe-close]")?.addEventListener("click", () => unsubscribeModal?.close());
+  unsubscribeModal?.addEventListener("click", (event) => {
+    if (event.target === unsubscribeModal) unsubscribeModal.close();
+  });
   document.querySelector("[data-clear-open]")?.addEventListener("click", () => {
     if (clearConfirm) clearConfirm.hidden = false;
   });
@@ -246,36 +252,43 @@ document.addEventListener("DOMContentLoaded", () => {
     await copyFromButton(button, "curl -fsS " + shellQuote(url));
   });
 
-  document.querySelector(".unsubscribe-form")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const button = form.querySelector("button");
-    button.disabled = true;
+  unsubscribeOpen?.addEventListener("click", () => {
+    openUnsubscribeInspector(unsubscribeOpen.dataset.unsubscribeAction || "", unsubscribeOpen.dataset.unsubscribeTargetUrl || "");
+  });
+  unsubscribeCopyCurl?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const targetURL = unsubscribeModal?.dataset.unsubscribeUrl || "";
+    if (!targetURL) return;
+    await copyFromButton(button, unsubscribeCurlCommand(targetURL));
+  });
+  unsubscribeSend?.addEventListener("click", async () => {
+    const action = unsubscribeModal?.dataset.unsubscribeAction || "";
+    if (!action || !unsubscribeSend) return;
+    unsubscribeSend.disabled = true;
+    renderUnsubscribePending();
     try {
-      const response = await fetch(form.action, {
+      const response = await fetch(action, {
         method: "POST",
         headers: { Accept: "application/json" },
       });
       const result = response.headers.get("Content-Type")?.includes("application/json")
         ? await response.json()
         : {
-            url: "",
-            success: false,
+            url: unsubscribeModal?.dataset.unsubscribeUrl || "",
             statusCode: response.status,
             status: response.statusText || String(response.status),
             error: "Mirage returned a non-JSON unsubscribe response.",
           };
-      showUnsubscribeResult(result);
+      renderUnsubscribeResponse(result);
     } catch (error) {
-      showUnsubscribeResult({
-        url: "",
-        success: false,
+      renderUnsubscribeResponse({
+        url: unsubscribeModal?.dataset.unsubscribeUrl || "",
         statusCode: 0,
         status: "Request failed",
         error: error instanceof Error ? error.message : String(error),
       });
     } finally {
-      button.disabled = false;
+      unsubscribeSend.disabled = false;
     }
   });
 
@@ -360,34 +373,109 @@ document.addEventListener("DOMContentLoaded", () => {
     return count + " " + (count === 1 ? "mail" : "mails") + ", " + unread + " unread";
   }
 
-  function showUnsubscribeResult(result) {
-    const url = unsubscribeModal?.querySelector("[data-unsubscribe-url]");
-    const resultNode = unsubscribeModal?.querySelector("[data-unsubscribe-result]");
-    const status = unsubscribeModal?.querySelector("[data-unsubscribe-status]");
-    const json = unsubscribeModal?.querySelector("[data-unsubscribe-json]");
-    if (url) url.textContent = result.url || "(unavailable)";
-    if (resultNode) {
-      resultNode.textContent = result.success ? "Success" : "Failed";
-      resultNode.className = result.success ? "result-success" : "result-failed";
-    }
+  function openUnsubscribeInspector(action, targetURL) {
+    if (!unsubscribeModal) return;
+    unsubscribeModal.dataset.unsubscribeAction = action;
+    unsubscribeModal.dataset.unsubscribeUrl = targetURL;
+    const url = unsubscribeModal.querySelector("[data-unsubscribe-url]");
+    const response = unsubscribeModal.querySelector("[data-unsubscribe-response]");
+    const output = unsubscribeModal.querySelector("[data-unsubscribe-output]");
+    const status = unsubscribeModal.querySelector("[data-unsubscribe-status]");
+    const time = unsubscribeModal.querySelector("[data-unsubscribe-time]");
+    const size = unsubscribeModal.querySelector("[data-unsubscribe-size]");
+    if (url) url.textContent = targetURL || "(unavailable)";
+    if (response) response.hidden = true;
+    if (output) output.textContent = "";
     if (status) {
-      const code = Number(result.statusCode) || 0;
-      status.textContent = code > 0 ? code + " " + (result.status || "") : (result.status || result.error || "No response");
+      status.textContent = "Not sent";
+      status.className = "status-pill";
     }
-    if (json) {
-      if (result.json !== undefined) {
-        json.hidden = false;
-        json.textContent = JSON.stringify(result.json, null, 2);
-      } else {
-        json.hidden = true;
-        json.textContent = "";
-      }
-    }
-    if (typeof unsubscribeModal?.showModal === "function") {
+    if (time) time.textContent = "";
+    if (size) size.textContent = "";
+    if (typeof unsubscribeModal.showModal === "function") {
       unsubscribeModal.showModal();
     } else {
-      unsubscribeModal?.setAttribute("open", "");
+      unsubscribeModal.setAttribute("open", "");
     }
+  }
+
+  function renderUnsubscribePending() {
+    if (!unsubscribeModal) return;
+    const response = unsubscribeModal.querySelector("[data-unsubscribe-response]");
+    const output = unsubscribeModal.querySelector("[data-unsubscribe-output]");
+    const status = unsubscribeModal.querySelector("[data-unsubscribe-status]");
+    const time = unsubscribeModal.querySelector("[data-unsubscribe-time]");
+    const size = unsubscribeModal.querySelector("[data-unsubscribe-size]");
+    if (response) response.hidden = false;
+    if (status) {
+      status.textContent = "Sending";
+      status.className = "status-pill pending";
+    }
+    if (time) time.textContent = "";
+    if (size) size.textContent = "";
+    if (output) output.textContent = "POST request in flight...";
+  }
+
+  function renderUnsubscribeResponse(result) {
+    if (!unsubscribeModal) return;
+    const response = unsubscribeModal.querySelector("[data-unsubscribe-response]");
+    const output = unsubscribeModal.querySelector("[data-unsubscribe-output]");
+    const status = unsubscribeModal.querySelector("[data-unsubscribe-status]");
+    const time = unsubscribeModal.querySelector("[data-unsubscribe-time]");
+    const size = unsubscribeModal.querySelector("[data-unsubscribe-size]");
+    const statusCode = Number(result.statusCode) || 0;
+    if (response) response.hidden = false;
+    if (status) {
+      status.textContent = statusCode > 0 ? statusCode + " " + (result.status || "") : (result.status || "Request failed");
+      status.className = "status-pill " + statusClass(statusCode, result.error);
+    }
+    if (time) time.textContent = result.durationMs !== undefined ? String(result.durationMs) + " ms" : "";
+    if (size) size.textContent = result.responseBodySize !== undefined ? formatBytes(result.responseBodySize) : "";
+    if (output) output.textContent = unsubscribeResponseText(result);
+  }
+
+  function statusClass(statusCode, error) {
+    if (error || statusCode === 0) return "error";
+    if (statusCode >= 200 && statusCode < 300) return "success";
+    if (statusCode >= 300 && statusCode < 500) return "warning";
+    return "error";
+  }
+
+  function unsubscribeResponseText(result) {
+    const lines = [];
+    if (result.error) {
+      lines.push("Error: " + result.error, "");
+    }
+    lines.push("Request");
+    lines.push((result.requestMethod || "POST") + " " + (result.url || unsubscribeModal?.dataset.unsubscribeUrl || ""));
+    for (const [key, value] of Object.entries(result.requestHeaders || { "Content-Type": "application/x-www-form-urlencoded" }).sort()) {
+      lines.push(key + ": " + value);
+    }
+    lines.push("");
+    lines.push(result.requestBody || "List-Unsubscribe=One-Click");
+    lines.push("");
+    lines.push("Response");
+    if (Number(result.statusCode) > 0) {
+      lines.push(String(result.statusCode) + " " + (result.status || ""));
+    }
+    for (const [key, value] of Object.entries(result.responseHeaders || {}).sort()) {
+      lines.push(key + ": " + value);
+    }
+    if (result.responseBody) {
+      lines.push("");
+      lines.push(result.responseBody);
+    }
+    return lines.join("\n");
+  }
+
+  function formatBytes(size) {
+    const value = Number(size) || 0;
+    if (value < 1024) return value + " B";
+    return (value / 1024).toFixed(1) + " kB";
+  }
+
+  function unsubscribeCurlCommand(targetURL) {
+    return "curl -X POST -H " + bashDoubleQuote("Content-Type: application/x-www-form-urlencoded") + " --data-urlencode " + bashDoubleQuote("List-Unsubscribe=One-Click") + " " + bashDoubleQuote(targetURL);
   }
 
   function escapeHTML(value) {
@@ -435,6 +523,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   function shellQuote(value) {
     return "'" + String(value).replace(/'/g, "'\\''") + "'";
+  }
+  function bashDoubleQuote(value) {
+    return '"' + String(value).replace(/(["\\$`])/g, "\\$1") + '"';
   }
 
   setInterval(() => refreshMessages().catch(() => {}), 2000);
