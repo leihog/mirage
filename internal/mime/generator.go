@@ -25,8 +25,8 @@ func Generate(msg Message, opts GenerateOptions) string {
 
 	switch {
 	case hasAttachments:
-		mixedBoundary := uniqueMIMEBoundary("mirage-mixed-"+safeFilenamePart(opts.ID), msg.Text, msg.HTML)
-		alternativeBoundary := uniqueMIMEBoundary("mirage-alt-"+safeFilenamePart(opts.ID), msg.Text, msg.HTML, mixedBoundary)
+		mixedBoundary := uniqueMIMEBoundary("mirage-mixed-"+SafeFilenamePart(opts.ID), msg.Text, msg.HTML)
+		alternativeBoundary := uniqueMIMEBoundary("mirage-alt-"+SafeFilenamePart(opts.ID), msg.Text, msg.HTML, mixedBoundary)
 		writeGeneratedMessageHeaders(&buf, msg, opts, stdmime.FormatMediaType("multipart/mixed", map[string]string{"boundary": mixedBoundary}), "")
 		if hasText || hasHTML {
 			writeMIMEBoundary(&buf, mixedBoundary)
@@ -49,7 +49,7 @@ func Generate(msg Message, opts GenerateOptions) string {
 		}
 		writeClosingMIMEBoundary(&buf, mixedBoundary)
 	case hasText && hasHTML:
-		boundary := uniqueMIMEBoundary("mirage-alt-"+safeFilenamePart(opts.ID), msg.Text, msg.HTML)
+		boundary := uniqueMIMEBoundary("mirage-alt-"+SafeFilenamePart(opts.ID), msg.Text, msg.HTML)
 		writeGeneratedMessageHeaders(&buf, msg, opts, stdmime.FormatMediaType("multipart/alternative", map[string]string{"boundary": boundary}), "")
 		writeAlternativeParts(&buf, boundary, msg)
 	case hasHTML:
@@ -92,17 +92,17 @@ func writeGeneratedMessageHeaders(buf *bytes.Buffer, msg Message, opts GenerateO
 }
 
 func messageID(msg Message, opts GenerateOptions) string {
-	if value := strings.TrimSpace(headerValue(msg.Headers, "Message-Id")); value != "" {
+	if value := strings.TrimSpace(HeaderValue(msg.Headers, "Message-Id")); value != "" {
 		return sanitizeHeaderValue(value)
 	}
-	id := safeFilenamePart(opts.ID)
+	id := SafeFilenamePart(opts.ID)
 	if id == "" {
 		id = "message"
 	}
 	return "<" + id + "@mirage.local>"
 }
 
-func headerValue(headers map[string]string, key string) string {
+func HeaderValue(headers map[string]string, key string) string {
 	for headerKey, value := range headers {
 		if strings.EqualFold(headerKey, key) {
 			return value
@@ -130,7 +130,7 @@ func writeTextPart(buf *bytes.Buffer, contentType, body string) {
 }
 
 func writeAttachmentPart(buf *bytes.Buffer, attachment Attachment) {
-	contentType := attachmentContentType(attachment)
+	contentType := ContentTypeOrDefault(attachment.ContentType)
 	if attachment.Name != "" {
 		mediaType, params, err := stdmime.ParseMediaType(contentType)
 		if err != nil {
@@ -166,9 +166,9 @@ func writeAttachmentPart(buf *bytes.Buffer, attachment Attachment) {
 	ensureTrailingCRLF(buf)
 }
 
-func attachmentContentType(attachment Attachment) string {
-	if attachment.ContentType != "" {
-		return attachment.ContentType
+func ContentTypeOrDefault(value string) string {
+	if value != "" {
+		return value
 	}
 	return "application/octet-stream"
 }
@@ -316,7 +316,7 @@ func writeBase64Lines(buf *bytes.Buffer, data []byte) {
 }
 
 func uniqueMIMEBoundary(base string, values ...string) string {
-	base = safeFilenamePart(base)
+	base = SafeFilenamePart(base)
 	if base == "" {
 		base = "mirage-boundary"
 	}
@@ -340,7 +340,7 @@ func boundaryInValues(boundary string, values []string) bool {
 	return false
 }
 
-func safeFilenamePart(value string) string {
+func SafeFilenamePart(value string) string {
 	var out strings.Builder
 	for _, ch := range value {
 		if ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9' || ch == '-' || ch == '_' {

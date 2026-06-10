@@ -3,6 +3,7 @@ package mailbox
 import (
 	"context"
 	"slices"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -60,7 +61,7 @@ func (s *Store) Add(msg Message) Message {
 
 	s.nextID++
 	now := time.Now().UTC()
-	msg.ID = now.Format("20060102T150405") + "-" + itoa(s.nextID)
+	msg.ID = now.Format("20060102T150405") + "-" + strconv.FormatUint(s.nextID, 10)
 	msg.CreatedAt = now
 	if msg.Headers == nil {
 		msg.Headers = map[string]string{}
@@ -180,18 +181,4 @@ func (s *Store) publishLocked(eventType, messageID string) {
 		default:
 		}
 	}
-}
-
-func itoa(n uint64) string {
-	if n == 0 {
-		return "0"
-	}
-	var buf [20]byte
-	i := len(buf)
-	for n > 0 {
-		i--
-		buf[i] = byte('0' + n%10)
-		n /= 10
-	}
-	return string(buf[i:])
 }

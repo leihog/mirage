@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/leihog/mirage/internal/mailbox"
+	mailmime "github.com/leihog/mirage/internal/mime"
 )
 
 func apiNotFoundHandler(w http.ResponseWriter, r *http.Request) {
@@ -172,7 +173,7 @@ func (a *app) apiV1MessageAttachmentHandler(w http.ResponseWriter, r *http.Reque
 			ID:          msg.ID,
 			Index:       index,
 			Name:        attachment.Name,
-			ContentType: attachmentContentType(attachment),
+			ContentType: mailmime.ContentTypeOrDefault(attachment.ContentType),
 			Size:        len(attachment.Data),
 			ContentID:   attachment.ContentID,
 			Inline:      attachment.Inline,

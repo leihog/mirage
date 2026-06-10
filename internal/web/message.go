@@ -42,20 +42,7 @@ func messageBodyFilename(msg mailbox.Message, part string) string {
 	if extension == "" {
 		extension = "txt"
 	}
-	return "message-" + safeFilenamePart(msg.ID) + "." + extension
-}
-
-func safeFilenamePart(value string) string {
-	var out strings.Builder
-	for _, ch := range value {
-		if ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9' || ch == '-' || ch == '_' {
-			out.WriteRune(ch)
-		}
-	}
-	if out.Len() == 0 {
-		return "email"
-	}
-	return out.String()
+	return "message-" + mailmime.SafeFilenamePart(msg.ID) + "." + extension
 }
 
 func rawMessage(msg mailbox.Message) string {

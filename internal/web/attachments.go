@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/leihog/mirage/internal/mailbox"
+	mailmime "github.com/leihog/mirage/internal/mime"
 )
 
 var cidURLPattern = regexp.MustCompile(`(?i)\b(src|href)\s*=\s*(['"]?)cid:([^'"\s>]+)(['"]?)`)
@@ -26,7 +27,7 @@ func attachmentByIndex(msg mailbox.Message, rawIndex string) (mailbox.Attachment
 }
 
 func writeAttachment(w http.ResponseWriter, attachment mailbox.Attachment) {
-	w.Header().Set("Content-Type", attachmentContentType(attachment))
+	w.Header().Set("Content-Type", mailmime.ContentTypeOrDefault(attachment.ContentType))
 	w.Header().Set("Content-Length", strconv.Itoa(len(attachment.Data)))
 	w.Header().Set("Content-Security-Policy", "sandbox")
 	if attachment.Name != "" {
@@ -39,13 +40,6 @@ func writeAttachment(w http.ResponseWriter, attachment mailbox.Attachment) {
 		}
 	}
 	_, _ = w.Write(attachment.Data)
-}
-
-func attachmentContentType(attachment mailbox.Attachment) string {
-	if attachment.ContentType != "" {
-		return attachment.ContentType
-	}
-	return "application/octet-stream"
 }
 
 func attachmentAPIURL(messageID string, index int) string {

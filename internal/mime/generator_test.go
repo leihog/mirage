@@ -109,7 +109,7 @@ func TestGenerateSerializesAttachmentsAsMultipartMixed(t *testing.T) {
 
 func TestGenerateAvoidsBoundaryCollisions(t *testing.T) {
 	id := "20260609T120000-1"
-	collidingBoundary := "mirage-alt-" + safeFilenamePart(id)
+	collidingBoundary := "mirage-alt-" + SafeFilenamePart(id)
 	raw := Generate(Message{
 		From: "Sender <sender@example.com>",
 		To:   []string{"User <user@example.com>"},

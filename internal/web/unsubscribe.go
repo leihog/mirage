@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/leihog/mirage/internal/mailbox"
+	mailmime "github.com/leihog/mirage/internal/mime"
 )
 
 type unsubscribeInfo struct {
@@ -30,12 +31,12 @@ type unsubscribeResult struct {
 }
 
 func unsubscribeAction(msg mailbox.Message) *unsubscribeInfo {
-	post := strings.TrimSpace(headerValue(msg.Headers, "List-Unsubscribe-Post"))
+	post := strings.TrimSpace(mailmime.HeaderValue(msg.Headers, "List-Unsubscribe-Post"))
 	if !strings.EqualFold(post, "List-Unsubscribe=One-Click") {
 		return nil
 	}
 
-	for _, candidate := range unsubscribeCandidates(headerValue(msg.Headers, "List-Unsubscribe")) {
+	for _, candidate := range unsubscribeCandidates(mailmime.HeaderValue(msg.Headers, "List-Unsubscribe")) {
 		parsed, err := url.Parse(candidate)
 		if err != nil {
 			continue
@@ -95,15 +96,6 @@ func flattenHeaders(headers http.Header) map[string]string {
 		out[key] = strings.Join(values, ", ")
 	}
 	return out
-}
-
-func headerValue(headers map[string]string, key string) string {
-	for headerKey, value := range headers {
-		if strings.EqualFold(headerKey, key) {
-			return value
-		}
-	}
-	return ""
 }
 
 func unsubscribeCandidates(value string) []string {

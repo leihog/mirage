@@ -11,6 +11,7 @@ import (
 
 	"github.com/leihog/mirage/internal/html"
 	"github.com/leihog/mirage/internal/mailbox"
+	mailmime "github.com/leihog/mirage/internal/mime"
 )
 
 type headerRow struct {
@@ -123,7 +124,7 @@ func senderName(value string) string {
 }
 
 func messageID(msg mailbox.Message) string {
-	if value := strings.TrimSpace(headerValue(msg.Headers, "Message-Id")); value != "" {
+	if value := strings.TrimSpace(mailmime.HeaderValue(msg.Headers, "Message-Id")); value != "" {
 		return value
 	}
 	return "<" + msg.ID + "@mirage.local>"
@@ -141,7 +142,7 @@ func htmlSource(msg mailbox.Message) template.HTML {
 }
 
 func dateLine(msg mailbox.Message) string {
-	if value := strings.TrimSpace(msg.Headers["Date"]); value != "" {
+	if value := strings.TrimSpace(mailmime.HeaderValue(msg.Headers, "Date")); value != "" {
 		return value
 	}
 	return msg.CreatedAt.UTC().Format(time.RFC1123Z)
@@ -158,11 +159,11 @@ func headerRows(msg mailbox.Message) []headerRow {
 		seen[strings.ToLower(key)] = true
 	}
 
-	add("Content-Type", msg.Headers["Content-Type"])
+	add("Content-Type", mailmime.HeaderValue(msg.Headers, "Content-Type"))
 	add("Date", dateLine(msg))
 	add("From", msg.From)
-	add("Message-Id", msg.Headers["Message-Id"])
-	add("Mime-Version", msg.Headers["Mime-Version"])
+	add("Message-Id", mailmime.HeaderValue(msg.Headers, "Message-Id"))
+	add("Mime-Version", mailmime.HeaderValue(msg.Headers, "Mime-Version"))
 	add("Subject", msg.Subject)
 	add("To", strings.Join(msg.To, ", "))
 	add("Cc", strings.Join(msg.Cc, ", "))
