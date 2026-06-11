@@ -23,13 +23,19 @@ func main() {
 	httpAddr := flag.String("http-addr", ":8025", "HTTP listen address")
 	smtpAddr := flag.String("smtp-addr", ":1025", "SMTP listen address")
 	maxMessages := flag.Int("max-messages", mailbox.DefaultMaxMessages, "maximum stored messages before the oldest are dropped (0 = unlimited)")
+	maxMessageBytes := flag.Int64("max-message-bytes", mailbox.DefaultMaxMessageBytes, "maximum accepted message size in bytes")
 	flag.Parse()
+
+	if *maxMessageBytes <= 0 {
+		fmt.Fprintln(os.Stderr, "-max-message-bytes must be greater than zero")
+		os.Exit(2)
+	}
 
 	store := mailbox.NewStore()
 	store.SetMaxMessages(*maxMessages)
 	mux := http.NewServeMux()
 
-	mailgun.Register(mux, store)
+	mailgun.Register(mux, store, *maxMessageBytes)
 	web.Register(mux, store)
 
 	serverCtx, cancelServerCtx := context.WithCancel(context.Background())
@@ -44,6 +50,7 @@ func main() {
 		},
 	}
 	smtpServer := smtpadapter.New(*smtpAddr, store)
+	smtpServer.MaxMessageBytes = *maxMessageBytes
 
 	errCh := make(chan error, 2)
 

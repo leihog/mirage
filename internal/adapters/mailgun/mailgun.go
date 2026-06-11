@@ -15,22 +15,26 @@ import (
 	mailmime "github.com/leihog/mirage/internal/mime"
 )
 
-const maxRequestBody = 32 << 20
-
 type Store interface {
 	Add(mailbox.Message) mailbox.Message
 }
 
-func Register(mux *http.ServeMux, store Store) {
+// Register adds the Mailgun-compatible routes. Requests larger than
+// maxRequestBody bytes are rejected; a limit of zero or less falls back to the
+// 32 MiB default.
+func Register(mux *http.ServeMux, store Store, maxRequestBody int64) {
+	if maxRequestBody <= 0 {
+		maxRequestBody = mailbox.DefaultMaxMessageBytes
+	}
 	mux.HandleFunc("POST /v3/{domain}/messages", func(w http.ResponseWriter, r *http.Request) {
-		handleMessage(w, r, store)
+		handleMessage(w, r, store, maxRequestBody)
 	})
 	mux.HandleFunc("POST /v3/{domain}/messages.mime", func(w http.ResponseWriter, r *http.Request) {
-		handleMIMEMessage(w, r, store)
+		handleMIMEMessage(w, r, store, maxRequestBody)
 	})
 }
 
-func handleMessage(w http.ResponseWriter, r *http.Request, store Store) {
+func handleMessage(w http.ResponseWriter, r *http.Request, store Store, maxRequestBody int64) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBody)
 
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
@@ -69,7 +73,7 @@ func handleMessage(w http.ResponseWriter, r *http.Request, store Store) {
 	writeMailgunResponse(w, msg)
 }
 
-func handleMIMEMessage(w http.ResponseWriter, r *http.Request, store Store) {
+func handleMIMEMessage(w http.ResponseWriter, r *http.Request, store Store, maxRequestBody int64) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBody)
 
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {

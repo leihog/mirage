@@ -17,8 +17,6 @@ import (
 	mailmime "github.com/leihog/mirage/internal/mime"
 )
 
-const defaultMaxMessageBytes = 32 << 20
-
 type Store interface {
 	Add(mailbox.Message) mailbox.Message
 }
@@ -39,7 +37,7 @@ func New(addr string, store Store) *Server {
 	return &Server{
 		Addr:            addr,
 		Hostname:        "mirage.local",
-		MaxMessageBytes: defaultMaxMessageBytes,
+		MaxMessageBytes: mailbox.DefaultMaxMessageBytes,
 		Store:           store,
 	}
 }
@@ -133,7 +131,7 @@ func (s *Server) handleConn(raw net.Conn) {
 	}
 	maxBytes := s.MaxMessageBytes
 	if maxBytes <= 0 {
-		maxBytes = defaultMaxMessageBytes
+		maxBytes = mailbox.DefaultMaxMessageBytes
 	}
 
 	conn.PrintfLine("220 %s ESMTP Mirage", hostname)

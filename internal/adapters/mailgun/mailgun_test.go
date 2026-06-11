@@ -16,7 +16,7 @@ import (
 func TestMessagesEndpointCapturesFormMessage(t *testing.T) {
 	store := mailbox.NewStore()
 	mux := http.NewServeMux()
-	Register(mux, store)
+	Register(mux, store, 0)
 
 	form := url.Values{}
 	form.Set("from", "Sender <sender@example.com>")
@@ -60,7 +60,7 @@ func TestMessagesEndpointCapturesFormMessage(t *testing.T) {
 func TestMessagesEndpointKeepsRepeatedHeadersAndOptions(t *testing.T) {
 	store := mailbox.NewStore()
 	mux := http.NewServeMux()
-	Register(mux, store)
+	Register(mux, store, 0)
 
 	form := url.Values{}
 	form.Set("from", "Sender <sender@example.com>")
@@ -89,10 +89,35 @@ func TestMessagesEndpointKeepsRepeatedHeadersAndOptions(t *testing.T) {
 	}
 }
 
+func TestMessagesEndpointRejectsOversizeRequest(t *testing.T) {
+	store := mailbox.NewStore()
+	mux := http.NewServeMux()
+	Register(mux, store, 64)
+
+	form := url.Values{}
+	form.Set("from", "sender@example.com")
+	form.Set("to", "user@example.com")
+	form.Set("subject", "Hello")
+	form.Set("text", strings.Repeat("a", 200))
+
+	req := httptest.NewRequest(http.MethodPost, "/v3/example.com/messages", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	res := httptest.NewRecorder()
+
+	mux.ServeHTTP(res, req)
+
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for oversize request, got %d: %s", res.Code, res.Body.String())
+	}
+	if got := len(store.List()); got != 0 {
+		t.Fatalf("expected oversize request to be rejected, got %d stored", got)
+	}
+}
+
 func TestMessagesEndpointStripsGeneratedHeaders(t *testing.T) {
 	store := mailbox.NewStore()
 	mux := http.NewServeMux()
-	Register(mux, store)
+	Register(mux, store, 0)
 
 	form := url.Values{}
 	form.Set("from", "Sender <sender@example.com>")
@@ -126,7 +151,7 @@ func TestMessagesEndpointStripsGeneratedHeaders(t *testing.T) {
 func TestMIMEEndpointCapturesUploadedMessage(t *testing.T) {
 	store := mailbox.NewStore()
 	mux := http.NewServeMux()
-	Register(mux, store)
+	Register(mux, store, 0)
 
 	var body strings.Builder
 	writer := multipart.NewWriter(&body)
@@ -164,7 +189,7 @@ func TestMIMEEndpointCapturesUploadedMessage(t *testing.T) {
 func TestMIMEEndpointStripsReceivedOnlyHeaders(t *testing.T) {
 	store := mailbox.NewStore()
 	mux := http.NewServeMux()
-	Register(mux, store)
+	Register(mux, store, 0)
 
 	raw := strings.Join([]string{
 		"Return-Path: <bounce@example.com>",
@@ -213,7 +238,7 @@ func TestMIMEEndpointStripsReceivedOnlyHeaders(t *testing.T) {
 func TestMIMEEndpointCapturesNestedMultipartAlternative(t *testing.T) {
 	store := mailbox.NewStore()
 	mux := http.NewServeMux()
-	Register(mux, store)
+	Register(mux, store, 0)
 
 	var body strings.Builder
 	writer := multipart.NewWriter(&body)

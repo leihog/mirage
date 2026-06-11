@@ -43,7 +43,10 @@ type Event struct {
 	MessageID string `json:"messageId,omitempty"`
 }
 
-const DefaultMaxMessages = 100
+const (
+	DefaultMaxMessages     = 100
+	DefaultMaxMessageBytes = 32 << 20 // 32 MiB
+)
 
 type Store struct {
 	mu          sync.RWMutex

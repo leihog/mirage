@@ -104,7 +104,34 @@ func TestSMTPServerUsesEnvelopeFallbacks(t *testing.T) {
 	}
 }
 
-func startTestServer(t *testing.T, store *mailbox.Store) (*Server, string, func()) {
+func TestSMTPServerRejectsOversizeMessage(t *testing.T) {
+	store := mailbox.NewStore()
+	_, addr, stop := startTestServer(t, store, func(server *Server) {
+		server.MaxMessageBytes = 64
+	})
+	defer stop()
+
+	client := dialSMTP(t, addr)
+	defer client.Close()
+
+	readResponse(t, client, 220)
+	writeLine(t, client, "EHLO local.test")
+	readResponse(t, client, 250)
+	writeLine(t, client, "MAIL FROM:<sender@example.com>")
+	readResponse(t, client, 250)
+	writeLine(t, client, "RCPT TO:<user@example.com>")
+	readResponse(t, client, 250)
+	writeLine(t, client, "DATA")
+	readResponse(t, client, 354)
+	writeData(t, client, "Subject: Too big\r\n\r\n"+strings.Repeat("a", 200))
+	readResponse(t, client, 552)
+
+	if got := len(store.List()); got != 0 {
+		t.Fatalf("expected oversize message to be rejected, got %d stored", got)
+	}
+}
+
+func startTestServer(t *testing.T, store *mailbox.Store, configure ...func(*Server)) (*Server, string, func()) {
 	t.Helper()
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -112,6 +139,9 @@ func startTestServer(t *testing.T, store *mailbox.Store) (*Server, string, func(
 		t.Fatal(err)
 	}
 	server := New(listener.Addr().String(), store)
+	for _, fn := range configure {
+		fn(server)
+	}
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- server.Serve(listener)
