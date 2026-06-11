@@ -131,8 +131,8 @@ func TestMessageDetailDateUsesDisplayTimestampAndHeadersUseRawDate(t *testing.T)
 	store := mailbox.NewStore()
 	msg := store.Add(mailbox.Message{
 		Subject: "timestamp",
-		Headers: map[string]string{
-			"Date": "Tue, 09 Jun 2026 08:15:00 +0000",
+		Headers: map[string][]string{
+			"Date": {"Tue, 09 Jun 2026 08:15:00 +0000"},
 		},
 	})
 

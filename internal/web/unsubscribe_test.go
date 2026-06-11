@@ -12,9 +12,9 @@ import (
 
 func TestUnsubscribeActionRequiresOneClickPostHeader(t *testing.T) {
 	msg := mailbox.Message{
-		Headers: map[string]string{
-			"List-Unsubscribe":      "<mailto:leave@example.com>, <https://example.com/unsubscribe/abc>",
-			"List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+		Headers: map[string][]string{
+			"List-Unsubscribe":      {"<mailto:leave@example.com>, <https://example.com/unsubscribe/abc>"},
+			"List-Unsubscribe-Post": {"List-Unsubscribe=One-Click"},
 		},
 	}
 	action := unsubscribeAction(msg)
@@ -25,7 +25,7 @@ func TestUnsubscribeActionRequiresOneClickPostHeader(t *testing.T) {
 		t.Fatalf("unexpected unsubscribe URL: %s", action.URL)
 	}
 
-	msg.Headers["List-Unsubscribe-Post"] = "List-Unsubscribe=Manual"
+	msg.Headers["List-Unsubscribe-Post"] = []string{"List-Unsubscribe=Manual"}
 	if action := unsubscribeAction(msg); action != nil {
 		t.Fatalf("unexpected unsubscribe action without one-click header: %#v", action)
 	}

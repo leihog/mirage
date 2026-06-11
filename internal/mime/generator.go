@@ -84,7 +84,9 @@ func writeGeneratedMessageHeaders(buf *bytes.Buffer, msg Message, opts GenerateO
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		writeGeneratedHeader(buf, key, encodeUnstructuredHeader(msg.Headers[key]))
+		for _, value := range msg.Headers[key] {
+			writeGeneratedHeader(buf, key, encodeUnstructuredHeader(value))
+		}
 	}
 	writeGeneratedHeader(buf, "Content-Type", contentType)
 	writeGeneratedHeader(buf, "Content-Transfer-Encoding", contentTransferEncoding)
@@ -100,15 +102,6 @@ func messageID(msg Message, opts GenerateOptions) string {
 		id = "message"
 	}
 	return "<" + id + "@mirage.local>"
-}
-
-func HeaderValue(headers map[string]string, key string) string {
-	for headerKey, value := range headers {
-		if strings.EqualFold(headerKey, key) {
-			return value
-		}
-	}
-	return ""
 }
 
 func writeAlternativeParts(buf *bytes.Buffer, boundary string, msg Message) {

@@ -280,8 +280,8 @@ func TestAPIV1MessageDoesNotMarkViewedUnlessRequested(t *testing.T) {
 		Subject: "metadata",
 		Text:    "plain",
 		HTML:    "<p>html</p>",
-		Headers: map[string]string{
-			"X-Test": "yes",
+		Headers: map[string][]string{
+			"X-Test": {"yes"},
 		},
 	})
 
@@ -301,7 +301,7 @@ func TestAPIV1MessageDoesNotMarkViewedUnlessRequested(t *testing.T) {
 		Message struct {
 			ID      string `json:"id"`
 			Viewed  bool   `json:"viewed"`
-			Headers map[string]string
+			Headers map[string][]string
 			Bodies  map[string]bodySummary `json:"bodies"`
 		} `json:"message"`
 	}
@@ -311,7 +311,7 @@ func TestAPIV1MessageDoesNotMarkViewedUnlessRequested(t *testing.T) {
 	if body.Message.ID != msg.ID || body.Message.Viewed {
 		t.Fatalf("unexpected message response: %#v", body.Message)
 	}
-	if body.Message.Headers["X-Test"] != "yes" {
+	if len(body.Message.Headers["X-Test"]) != 1 || body.Message.Headers["X-Test"][0] != "yes" {
 		t.Fatalf("expected headers in detail response: %#v", body.Message.Headers)
 	}
 	if body.Message.Bodies["text"].URL == "" || body.Message.Bodies["html"].URL == "" || body.Message.Bodies["raw"].URL == "" {

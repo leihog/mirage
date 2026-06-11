@@ -8,6 +8,8 @@ import (
 	"mime/multipart"
 	"mime/quotedprintable"
 	"net/mail"
+	"slices"
+	"sort"
 	"strings"
 )
 
@@ -17,7 +19,7 @@ type Message struct {
 	Cc          []string
 	Bcc         []string
 	Subject     string
-	Headers     map[string]string
+	Headers     map[string][]string
 	Text        string
 	HTML        string
 	Attachments []Attachment
@@ -44,16 +46,39 @@ func Parse(raw []byte) (Message, error) {
 		Cc:      ParseAddressFields(parsed.Header["Cc"]),
 		Bcc:     ParseAddressFields(parsed.Header["Bcc"]),
 		Subject: parsed.Header.Get("Subject"),
-		Headers: map[string]string{},
+		Headers: map[string][]string{},
 	}
 	for key, values := range parsed.Header {
-		msg.Headers[key] = strings.Join(values, ", ")
+		msg.Headers[key] = slices.Clone(values)
 	}
 
 	if err := parseEntity(parsed.Header, parsed.Body, &msg); err != nil {
 		return Message{}, err
 	}
 	return msg, nil
+}
+
+func HeaderValue(headers map[string][]string, key string) string {
+	values := HeaderValues(headers, key)
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
+}
+
+func HeaderValues(headers map[string][]string, key string) []string {
+	var matched []string
+	for headerKey := range headers {
+		if strings.EqualFold(headerKey, key) {
+			matched = append(matched, headerKey)
+		}
+	}
+	sort.Strings(matched)
+	var out []string
+	for _, headerKey := range matched {
+		out = append(out, headers[headerKey]...)
+	}
+	return out
 }
 
 func ParseAddressField(value string) string {

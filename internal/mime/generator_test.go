@@ -3,6 +3,7 @@ package mime
 import (
 	stdmime "mime"
 	"net/mail"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -14,9 +15,9 @@ func TestGenerateSanitizesHeadersAndEncodesTextBody(t *testing.T) {
 		To:      []string{"User <user@example.com>"},
 		Subject: "Hello\r\nX-Injected: yes",
 		Text:    "Héllo\n" + strings.Repeat("a", 1200),
-		Headers: map[string]string{
-			"X-Test":             "kept\r\nX-Evil: yes",
-			"Bad\r\nHeader-Name": "dropped",
+		Headers: map[string][]string{
+			"X-Test":             {"kept\r\nX-Evil: yes"},
+			"Bad\r\nHeader-Name": {"dropped"},
 		},
 	}, GenerateOptions{
 		ID:        "20260609T120000-1",
@@ -52,6 +53,28 @@ func TestGenerateSanitizesHeadersAndEncodesTextBody(t *testing.T) {
 	}
 	if !strings.Contains(decoded.Text, "Héllo") {
 		t.Fatalf("expected decoded text body, got %q", decoded.Text)
+	}
+}
+
+func TestGenerateWritesRepeatedHeadersAsSeparateLines(t *testing.T) {
+	raw := Generate(Message{
+		From: "sender@example.com",
+		To:   []string{"user@example.com"},
+		Text: "body",
+		Headers: map[string][]string{
+			"X-Tag": {"first", "second"},
+		},
+	}, GenerateOptions{
+		ID:        "20260609T120000-1",
+		CreatedAt: time.Date(2026, 6, 9, 12, 0, 0, 0, time.UTC),
+	})
+
+	parsed, err := mail.ReadMessage(strings.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(parsed.Header["X-Tag"], []string{"first", "second"}) {
+		t.Fatalf("expected repeated X-Tag header lines, got %#v", parsed.Header["X-Tag"])
 	}
 }
 

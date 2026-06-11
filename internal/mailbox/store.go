@@ -19,9 +19,9 @@ type Message struct {
 	Subject     string
 	Text        string
 	HTML        string
-	Headers     map[string]string
-	Variables   map[string]string
-	Options     map[string]string
+	Headers     map[string][]string
+	Variables   map[string][]string
+	Options     map[string][]string
 	Attachments []Attachment
 	CreatedAt   time.Time
 	Viewed      bool
@@ -64,13 +64,13 @@ func (s *Store) Add(msg Message) Message {
 	msg.ID = now.Format("20060102T150405") + "-" + strconv.FormatUint(s.nextID, 10)
 	msg.CreatedAt = now
 	if msg.Headers == nil {
-		msg.Headers = map[string]string{}
+		msg.Headers = map[string][]string{}
 	}
 	if msg.Variables == nil {
-		msg.Variables = map[string]string{}
+		msg.Variables = map[string][]string{}
 	}
 	if msg.Options == nil {
-		msg.Options = map[string]string{}
+		msg.Options = map[string][]string{}
 	}
 
 	s.messages = append(s.messages, msg)

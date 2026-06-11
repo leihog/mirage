@@ -17,20 +17,20 @@ type messageResponse struct {
 }
 
 type messageSummary struct {
-	ID              string            `json:"id"`
-	Subject         string            `json:"subject"`
-	From            string            `json:"from"`
-	To              []string          `json:"to"`
-	Cc              []string          `json:"cc"`
-	Bcc             []string          `json:"bcc"`
-	Provider        string            `json:"provider"`
-	Domain          string            `json:"domain"`
-	CreatedAt       time.Time         `json:"createdAt"`
-	Viewed          bool              `json:"viewed"`
-	HasText         bool              `json:"hasText"`
-	HasHTML         bool              `json:"hasHTML"`
-	AttachmentCount int               `json:"attachmentCount"`
-	Headers         map[string]string `json:"headers,omitempty"`
+	ID              string              `json:"id"`
+	Subject         string              `json:"subject"`
+	From            string              `json:"from"`
+	To              []string            `json:"to"`
+	Cc              []string            `json:"cc"`
+	Bcc             []string            `json:"bcc"`
+	Provider        string              `json:"provider"`
+	Domain          string              `json:"domain"`
+	CreatedAt       time.Time           `json:"createdAt"`
+	Viewed          bool                `json:"viewed"`
+	HasText         bool                `json:"hasText"`
+	HasHTML         bool                `json:"hasHTML"`
+	AttachmentCount int                 `json:"attachmentCount"`
+	Headers         map[string][]string `json:"headers,omitempty"`
 }
 
 type messageDetail struct {
@@ -44,9 +44,9 @@ type messageDetail struct {
 	Domain      string                 `json:"domain"`
 	CreatedAt   time.Time              `json:"createdAt"`
 	Viewed      bool                   `json:"viewed"`
-	Headers     map[string]string      `json:"headers"`
-	Variables   map[string]string      `json:"variables"`
-	Options     map[string]string      `json:"options"`
+	Headers     map[string][]string    `json:"headers"`
+	Variables   map[string][]string    `json:"variables"`
+	Options     map[string][]string    `json:"options"`
 	Attachments []attachmentResponse   `json:"attachments"`
 	Bodies      map[string]bodySummary `json:"bodies"`
 	Unsubscribe *unsubscribeSummary    `json:"unsubscribe,omitempty"`

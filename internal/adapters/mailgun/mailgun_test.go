@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 
@@ -51,8 +52,40 @@ func TestMessagesEndpointCapturesFormMessage(t *testing.T) {
 	if msg.Domain != "example.com" || msg.Subject != "Hello" || msg.HTML != "<p>HTML</p>" {
 		t.Fatalf("message was not captured correctly: %#v", msg)
 	}
-	if msg.Headers["X-Test"] != "yes" || msg.Options["tag"] != "welcome" {
+	if !slices.Equal(msg.Headers["X-Test"], []string{"yes"}) || !slices.Equal(msg.Options["tag"], []string{"welcome"}) {
 		t.Fatalf("prefixed fields were not captured: %#v %#v", msg.Headers, msg.Options)
+	}
+}
+
+func TestMessagesEndpointKeepsRepeatedHeadersAndOptions(t *testing.T) {
+	store := mailbox.NewStore()
+	mux := http.NewServeMux()
+	Register(mux, store)
+
+	form := url.Values{}
+	form.Set("from", "Sender <sender@example.com>")
+	form.Add("to", "User <user@example.com>")
+	form.Set("subject", "Hello")
+	form.Add("h:X-Tag", "first")
+	form.Add("h:X-Tag", "second")
+	form.Add("o:tag", "welcome")
+	form.Add("o:tag", "onboarding")
+
+	req := httptest.NewRequest(http.MethodPost, "/v3/example.com/messages", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	res := httptest.NewRecorder()
+
+	mux.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", res.Code, res.Body.String())
+	}
+	msg := store.List()[0]
+	if !slices.Equal(msg.Headers["X-Tag"], []string{"first", "second"}) {
+		t.Fatalf("expected repeated header values to be kept: %#v", msg.Headers)
+	}
+	if !slices.Equal(msg.Options["tag"], []string{"welcome", "onboarding"}) {
+		t.Fatalf("expected repeated option values to be kept: %#v", msg.Options)
 	}
 }
 
@@ -85,7 +118,7 @@ func TestMessagesEndpointStripsGeneratedHeaders(t *testing.T) {
 	if _, ok := msg.Headers["Message-ID"]; ok {
 		t.Fatalf("expected Message-ID header to be stripped: %#v", msg.Headers)
 	}
-	if msg.Headers["X-Test"] != "kept" {
+	if !slices.Equal(msg.Headers["X-Test"], []string{"kept"}) {
 		t.Fatalf("expected custom header to remain: %#v", msg.Headers)
 	}
 }
@@ -166,13 +199,13 @@ func TestMIMEEndpointStripsReceivedOnlyHeaders(t *testing.T) {
 			t.Fatalf("expected %s to be stripped from raw MIME: %s", key, string(msg.Raw))
 		}
 	}
-	if msg.Headers["Date"] != "Tue, 09 Jun 2026 08:15:00 +0000" || msg.Headers["Message-Id"] != "<client-supplied@example.com>" {
+	if !slices.Equal(msg.Headers["Date"], []string{"Tue, 09 Jun 2026 08:15:00 +0000"}) || !slices.Equal(msg.Headers["Message-Id"], []string{"<client-supplied@example.com>"}) {
 		t.Fatalf("expected Date and Message-ID to be preserved: %#v", msg.Headers)
 	}
 	if !strings.Contains(string(msg.Raw), "Date: Tue, 09 Jun 2026 08:15:00 +0000") || !strings.Contains(string(msg.Raw), "Message-Id: <client-supplied@example.com>") {
 		t.Fatalf("expected Date and Message-ID to be preserved in raw MIME: %s", string(msg.Raw))
 	}
-	if msg.Headers["X-Test"] != "kept" || !strings.Contains(string(msg.Raw), "X-Test: kept") {
+	if !slices.Equal(msg.Headers["X-Test"], []string{"kept"}) || !strings.Contains(string(msg.Raw), "X-Test: kept") {
 		t.Fatalf("expected custom sendable header to remain: %#v raw=%s", msg.Headers, string(msg.Raw))
 	}
 }

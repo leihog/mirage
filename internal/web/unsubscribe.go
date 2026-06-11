@@ -36,13 +36,15 @@ func unsubscribeAction(msg mailbox.Message) *unsubscribeInfo {
 		return nil
 	}
 
-	for _, candidate := range unsubscribeCandidates(mailmime.HeaderValue(msg.Headers, "List-Unsubscribe")) {
-		parsed, err := url.Parse(candidate)
-		if err != nil {
-			continue
-		}
-		if parsed.Scheme == "http" || parsed.Scheme == "https" {
-			return &unsubscribeInfo{URL: parsed.String()}
+	for _, header := range mailmime.HeaderValues(msg.Headers, "List-Unsubscribe") {
+		for _, candidate := range unsubscribeCandidates(header) {
+			parsed, err := url.Parse(candidate)
+			if err != nil {
+				continue
+			}
+			if parsed.Scheme == "http" || parsed.Scheme == "https" {
+				return &unsubscribeInfo{URL: parsed.String()}
+			}
 		}
 	}
 	return nil

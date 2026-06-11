@@ -57,8 +57,10 @@ func funcs() template.FuncMap {
 		},
 		"messageSize": func(msg mailbox.Message) string {
 			size := len(msg.Raw) + len(msg.Text) + len(msg.HTML)
-			for key, value := range msg.Headers {
-				size += len(key) + len(value) + 4
+			for key, values := range msg.Headers {
+				for _, value := range values {
+					size += len(key) + len(value) + 4
+				}
 			}
 			if size < 1024 {
 				return fmt.Sprintf("%d B", size)
@@ -159,11 +161,17 @@ func headerRows(msg mailbox.Message) []headerRow {
 		seen[strings.ToLower(key)] = true
 	}
 
-	add("Content-Type", mailmime.HeaderValue(msg.Headers, "Content-Type"))
+	addAll := func(key string) {
+		for _, value := range mailmime.HeaderValues(msg.Headers, key) {
+			add(key, value)
+		}
+	}
+
+	addAll("Content-Type")
 	add("Date", dateLine(msg))
 	add("From", msg.From)
-	add("Message-Id", mailmime.HeaderValue(msg.Headers, "Message-Id"))
-	add("Mime-Version", mailmime.HeaderValue(msg.Headers, "Mime-Version"))
+	addAll("Message-Id")
+	addAll("Mime-Version")
 	add("Subject", msg.Subject)
 	add("To", strings.Join(msg.To, ", "))
 	add("Cc", strings.Join(msg.Cc, ", "))
@@ -177,7 +185,9 @@ func headerRows(msg mailbox.Message) []headerRow {
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		add(key, msg.Headers[key])
+		for _, value := range msg.Headers[key] {
+			add(key, value)
+		}
 	}
 	return rows
 }

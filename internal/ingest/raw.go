@@ -3,6 +3,7 @@ package ingest
 import (
 	"io"
 	"net/mail"
+	"slices"
 	"sort"
 	"strings"
 
@@ -68,13 +69,13 @@ func SanitizeRaw(raw []byte) []byte {
 	return []byte(out.String())
 }
 
-func submittedHeaders(headers map[string]string) map[string]string {
-	out := map[string]string{}
-	for key, value := range headers {
+func submittedHeaders(headers map[string][]string) map[string][]string {
+	out := map[string][]string{}
+	for key, values := range headers {
 		if blockedSubmittedHeader(key) {
 			continue
 		}
-		out[key] = value
+		out[key] = slices.Clone(values)
 	}
 	return out
 }

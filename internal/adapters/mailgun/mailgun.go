@@ -6,6 +6,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"slices"
 	"sort"
 	"strings"
 
@@ -137,11 +138,11 @@ func first(values []string) string {
 	return values[0]
 }
 
-func prefixedFields(values map[string][]string, prefix string) map[string]string {
-	out := map[string]string{}
+func prefixedFields(values map[string][]string, prefix string) map[string][]string {
+	out := map[string][]string{}
 	for key, fieldValues := range values {
 		if strings.HasPrefix(key, prefix) {
-			out[strings.TrimPrefix(key, prefix)] = first(fieldValues)
+			out[strings.TrimPrefix(key, prefix)] = slices.Clone(fieldValues)
 		}
 	}
 	return out
@@ -203,13 +204,13 @@ func firstUploadedFile(form *multipart.Form, field string) ([]byte, string, erro
 	return raw, header.Filename, err
 }
 
-func sendableHeaders(headers map[string]string) map[string]string {
-	out := map[string]string{}
-	for key, value := range headers {
+func sendableHeaders(headers map[string][]string) map[string][]string {
+	out := map[string][]string{}
+	for key, values := range headers {
 		if blockedGeneratedFormHeader(key) {
 			continue
 		}
-		out[key] = value
+		out[key] = values
 	}
 	return out
 }
