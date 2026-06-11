@@ -10,7 +10,7 @@ RUN go build -trimpath -ldflags="-s -w" -o /out/mirage ./cmd/mirage
 FROM alpine:3.22
 
 LABEL org.opencontainers.image.title="Mirage"
-LABEL org.opencontainers.image.description="Local Mailgun-compatible mail capture service"
+LABEL org.opencontainers.image.description="Mirage is a local email capture service for testing SMTP and Mailgun-compatible integrations."
 LABEL org.opencontainers.image.source="https://github.com/leihog/mirage"
 LABEL org.opencontainers.image.licenses="MIT"
 
