@@ -81,7 +81,7 @@ func handleMIMEMessage(w http.ResponseWriter, r *http.Request, store Store, maxR
 			http.Error(w, "invalid multipart form: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		raw, filename, err := firstUploadedFile(r.MultipartForm, "message")
+		raw, err := firstUploadedFile(r.MultipartForm, "message")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -91,18 +91,9 @@ func handleMIMEMessage(w http.ResponseWriter, r *http.Request, store Store, maxR
 			http.Error(w, "invalid MIME message: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		raw = ingest.SanitizeRaw(raw)
 		msg.Provider = "mailgun"
 		msg.Domain = r.PathValue("domain")
-		msg.Raw = raw
-		if filename != "" {
-			msg.Attachments = append(msg.Attachments, mailbox.Attachment{
-				Name:        filename,
-				Size:        int64(len(raw)),
-				ContentType: "message/rfc822",
-				Data:        raw,
-			})
-		}
+		msg.Raw = ingest.SanitizeRaw(raw)
 		msg = store.Add(msg)
 		writeMailgunResponse(w, msg)
 		return
@@ -192,20 +183,19 @@ func readUploadedFile(header *multipart.FileHeader) ([]byte, error) {
 	return io.ReadAll(file)
 }
 
-func firstUploadedFile(form *multipart.Form, field string) ([]byte, string, error) {
+func firstUploadedFile(form *multipart.Form, field string) ([]byte, error) {
 	if form == nil || len(form.File[field]) == 0 {
-		return nil, "", fmt.Errorf("missing %q file field", field)
+		return nil, fmt.Errorf("missing %q file field", field)
 	}
 
 	header := form.File[field][0]
 	file, err := header.Open()
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	defer file.Close()
 
-	raw, err := io.ReadAll(file)
-	return raw, header.Filename, err
+	return io.ReadAll(file)
 }
 
 func sendableHeaders(headers map[string][]string) map[string][]string {

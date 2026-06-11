@@ -184,6 +184,9 @@ func TestMIMEEndpointCapturesUploadedMessage(t *testing.T) {
 	if msg.Subject != "MIME hello" || msg.HTML != "<strong>Hello</strong>" {
 		t.Fatalf("unexpected MIME message: %#v", msg)
 	}
+	if len(msg.Attachments) != 0 {
+		t.Fatalf("expected no attachments, the uploaded MIME file itself must not be stored as one: %#v", msg.Attachments)
+	}
 }
 
 func TestMIMEEndpointStripsReceivedOnlyHeaders(t *testing.T) {
@@ -288,13 +291,13 @@ func TestMIMEEndpointCapturesNestedMultipartAlternative(t *testing.T) {
 	if msg.Subject != "Nested MIME hello" || msg.Text != "Plain nested" || msg.HTML != "<strong>Nested</strong>" {
 		t.Fatalf("unexpected MIME message: %#v", msg)
 	}
-	if len(msg.Attachments) != 2 {
-		t.Fatalf("expected uploaded .eml plus nested attachment metadata, got %#v", msg.Attachments)
+	if len(msg.Attachments) != 1 {
+		t.Fatalf("expected only the nested attachment, got %#v", msg.Attachments)
 	}
-	if msg.Attachments[0].Name != "notes.txt" || msg.Attachments[1].Name != "nested.eml" {
+	if msg.Attachments[0].Name != "notes.txt" {
 		t.Fatalf("unexpected attachments: %#v", msg.Attachments)
 	}
-	if len(msg.Attachments[0].Data) == 0 || len(msg.Attachments[1].Data) == 0 {
-		t.Fatalf("expected nested and uploaded attachments to be inspectable: %#v", msg.Attachments)
+	if len(msg.Attachments[0].Data) == 0 {
+		t.Fatalf("expected nested attachment to be inspectable: %#v", msg.Attachments)
 	}
 }
