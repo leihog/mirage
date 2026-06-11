@@ -82,6 +82,59 @@ func TestStoreSetViewedUpdatesMessage(t *testing.T) {
 	}
 }
 
+func TestStoreEvictsOldestMessagesBeyondCap(t *testing.T) {
+	store := NewStore()
+	store.SetMaxMessages(2)
+
+	first := store.Add(Message{Subject: "first"})
+	second := store.Add(Message{Subject: "second"})
+	third := store.Add(Message{Subject: "third"})
+
+	messages := store.List()
+	if len(messages) != 2 {
+		t.Fatalf("expected two messages after eviction, got %d", len(messages))
+	}
+	if messages[0].ID != third.ID || messages[1].ID != second.ID {
+		t.Fatalf("expected newest messages to remain, got %#v", messages)
+	}
+	if _, ok := store.Get(first.ID); ok {
+		t.Fatal("expected oldest message to be evicted")
+	}
+}
+
+func TestStoreUnlimitedWhenCapDisabled(t *testing.T) {
+	store := NewStore()
+	store.SetMaxMessages(0)
+
+	for range DefaultMaxMessages + 1 {
+		store.Add(Message{Subject: "kept"})
+	}
+	if got := len(store.List()); got != DefaultMaxMessages+1 {
+		t.Fatalf("expected all messages to be kept, got %d", got)
+	}
+}
+
+func TestStorePublishesEvictionAsDelete(t *testing.T) {
+	store := NewStore()
+	store.SetMaxMessages(1)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	events := store.Subscribe(ctx)
+
+	first := store.Add(Message{Subject: "first"})
+	if event := nextEvent(t, events); event.Type != "message-added" || event.MessageID != first.ID {
+		t.Fatalf("unexpected first event: %#v", event)
+	}
+
+	second := store.Add(Message{Subject: "second"})
+	if event := nextEvent(t, events); event.Type != "message-added" || event.MessageID != second.ID {
+		t.Fatalf("unexpected second event: %#v", event)
+	}
+	if event := nextEvent(t, events); event.Type != "message-deleted" || event.MessageID != first.ID {
+		t.Fatalf("expected eviction to publish message-deleted for the oldest message: %#v", event)
+	}
+}
+
 func TestStorePublishesMutationEvents(t *testing.T) {
 	store := NewStore()
 	ctx, cancel := context.WithCancel(context.Background())

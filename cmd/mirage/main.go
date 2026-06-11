@@ -22,9 +22,11 @@ import (
 func main() {
 	httpAddr := flag.String("http-addr", ":8025", "HTTP listen address")
 	smtpAddr := flag.String("smtp-addr", ":1025", "SMTP listen address")
+	maxMessages := flag.Int("max-messages", mailbox.DefaultMaxMessages, "maximum stored messages before the oldest are dropped (0 = unlimited)")
 	flag.Parse()
 
 	store := mailbox.NewStore()
+	store.SetMaxMessages(*maxMessages)
 	mux := http.NewServeMux()
 
 	mailgun.Register(mux, store)

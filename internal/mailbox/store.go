@@ -43,16 +43,26 @@ type Event struct {
 	MessageID string `json:"messageId,omitempty"`
 }
 
+const DefaultMaxMessages = 100
+
 type Store struct {
 	mu          sync.RWMutex
 	nextID      uint64
 	revision    uint64
+	maxMessages int
 	messages    []Message
 	subscribers map[chan Event]struct{}
 }
 
 func NewStore() *Store {
-	return &Store{}
+	return &Store{maxMessages: DefaultMaxMessages}
+}
+
+// SetMaxMessages caps how many messages the store keeps; adding a message
+// beyond the cap evicts the oldest one. A limit of zero or less disables the
+// cap. Call it before serving requests; it is not synchronized with Add.
+func (s *Store) SetMaxMessages(limit int) {
+	s.maxMessages = limit
 }
 
 func (s *Store) Add(msg Message) Message {
@@ -75,6 +85,11 @@ func (s *Store) Add(msg Message) Message {
 
 	s.messages = append(s.messages, msg)
 	s.publishLocked("message-added", msg.ID)
+	for s.maxMessages > 0 && len(s.messages) > s.maxMessages {
+		evicted := s.messages[0]
+		s.messages = slices.Delete(s.messages, 0, 1)
+		s.publishLocked("message-deleted", evicted.ID)
+	}
 	return msg
 }
 
