@@ -1,11 +1,14 @@
-FROM golang:1.26-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build
+
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /src
 COPY go.mod ./
 COPY cmd ./cmd
 COPY internal ./internal
 ENV CGO_ENABLED=0
-RUN go build -trimpath -ldflags="-s -w" -o /out/mirage ./cmd/mirage
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/mirage ./cmd/mirage
 
 FROM alpine:3.22
 

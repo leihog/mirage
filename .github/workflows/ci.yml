@@ -8,7 +8,16 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: test (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
 
@@ -20,4 +29,7 @@ jobs:
 
       - run: go test -race ./...
 
-      - run: docker build .
+      - run: tests/scripts/smoke.sh
+
+      - if: always()
+        run: tests/scripts/stop.sh
