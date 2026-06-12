@@ -1,0 +1,33 @@
+Date: Tue, 09 Jun 2026 10:45:00 +0000
+Message-ID: <CABcDeFg0123456789HiJkLmNoPqRsTuVwXyZ@mail.gmail.com>
+MIME-Version: 1.0
+Subject: Integration: Gmail-style mixed message
+From: Fixture Sender <fixture.sender@example.test>
+To: Fixture Inbox <fixture.inbox@example.test>
+Content-Type: multipart/mixed; boundary=000000000000a1b2c3061f4e5d6c
+
+--000000000000a1b2c3061f4e5d6c
+Content-Type: multipart/alternative; boundary=000000000000a1b2c1061f4e5d6a
+
+--000000000000a1b2c1061f4e5d6a
+Content-Type: text/plain; charset=UTF-8
+
+This is the plain text body from a Gmail-style fixture.
+
+--000000000000a1b2c1061f4e5d6a
+Content-Type: text/html; charset=UTF-8
+
+<p>This is the <strong>HTML</strong> body from a Gmail-style fixture.</p>
+
+--000000000000a1b2c1061f4e5d6a--
+--000000000000a1b2c3061f4e5d6c
+Content-Type: text/html; charset=UTF-8; name="bookmarks.html"
+Content-Disposition: attachment; filename="bookmarks.html"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: mirage-bookmarks
+
+PCFkb2N0eXBlIGh0bWw+CjxodG1sPjxib2R5Pgo8aDE+TWlyYWdlIEJvb2ttYXJrczwvaDE+Cjx1
+bD4KPGxpPjxhIGhyZWY9Imh0dHBzOi8vZXhhbXBsZS50ZXN0L25ld3MiPk5ld3M8L2E+PC9saT4K
+PGxpPjxhIGhyZWY9Imh0dHBzOi8vZXhhbXBsZS50ZXN0L2RvY3MiPkRvY3M8L2E+PC9saT4KPC91
+bD4KPC9ib2R5PjwvaHRtbD4K
+--000000000000a1b2c3061f4e5d6c--

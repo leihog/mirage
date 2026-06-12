@@ -1,0 +1,54 @@
+Date: Tue, 09 Jun 2026 11:20:00 +0000
+Message-ID: <with-files-fixture-001@example.test>
+To: Fixture Recipient <recipient@example.test>
+Subject: Integration: related message with inline files
+From: Fixture Composer <composer@example.test>
+Reply-To: Fixture Composer <composer@example.test>
+Sender: fixtures@example.test
+X-Mailer: Mirage integration fixture
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="mirage-mixed-related"
+
+--mirage-mixed-related
+Content-Type: multipart/related; boundary="mirage-related"
+
+--mirage-related
+Content-Type: multipart/alternative; boundary="mirage-related-alt"
+
+--mirage-related-alt
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+This fixture includes HTML, an inline image, and a plain attachment.
+
+--mirage-related-alt
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+<html>
+<body>
+<h1>Mirage related fixture</h1>
+<p>This HTML body references the Mirage inline mark.</p>
+<img src=3D"cid:mirage-logo" width=3D"168" alt=3D"Mirage">
+</body>
+</html>
+--mirage-related-alt--
+
+--mirage-related
+Content-Type: image/svg+xml; name="mirage-mark.svg"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline; filename="mirage-mark.svg"
+Content-ID: <mirage-logo>
+
+PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjggMiA4NCA1NiIgc3R5bGU9ImNvbG9yOiMzNkUyN0UiIHJvbGU9ImltZyIgYXJpYS1sYWJlbD0iTWlyYWdlIj4KICA8ZyBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+CiAgICA8cGF0aCBzdHJva2Utd2lkdGg9IjEuOCIgb3BhY2l0eT0iMC4xNiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTcsLTUpIiBkPSJNMTYgNTBMMTYgMTBMMzEgMTBMNTAgMzNMNjkgMTBMODQgMTBMODQgNTBMNjkgNTBMNjkgMzFMNTAgNDlMMzEgMzFMMzEgNTBaIj48L3BhdGg+CiAgICA8cGF0aCBzdHJva2Utd2lkdGg9IjEuOCIgb3BhY2l0eT0iMC4zNCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTMuNSwtMi41KSIgZD0iTTE2IDUwTDE2IDEwTDMxIDEwTDUwIDMzTDY5IDEwTDg0IDEwTDg0IDUwTDY5IDUwTDY5IDMxTDUwIDQ5TDMxIDMxTDMxIDUwWiI+PC9wYXRoPgogICAgPHBhdGggc3Ryb2tlLXdpZHRoPSIyLjIiIG9wYWNpdHk9IjEiIGQ9Ik0xNiA1MEwxNiAxMEwzMSAxMEw1MCAzM0w2OSAxMEw4NCAxMEw4NCA1MEw2OSA1MEw2OSAzMUw1MCA0OUwzMSAzMUwzMSA1MFoiPjwvcGF0aD4KICAgIDxwYXRoIHN0cm9rZS13aWR0aD0iMS44IiBvcGFjaXR5PSIwLjUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDMuNSwyLjUpIiBkPSJNMTYgNTBMMTYgMTBMMzEgMTBMNTAgMzNMNjkgMTBMODQgMTBMODQgNTBMNjkgNTBMNjkgMzFMNTAgNDlMMzEgMzFMMzEgNTBaIj48L3BhdGg+CiAgICA8cGF0aCBzdHJva2Utd2lkdGg9IjEuOCIgb3BhY2l0eT0iMC4yNiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNyw1KSIgZD0iTTE2IDUwTDE2IDEwTDMxIDEwTDUwIDMzTDY5IDEwTDg0IDEwTDg0IDUwTDY5IDUwTDY5IDMxTDUwIDQ5TDMxIDMxTDMxIDUwWiI+PC9wYXRoPgogIDwvZz4KPC9zdmc+
+
+--mirage-related--
+
+--mirage-mixed-related
+Content-Type: text/plain; name="attachment.txt"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="attachment.txt"
+
+VGhpcyBpcyBhIE1pcmFnZSBpbnRlZ3JhdGlvbiBmaXh0dXJlIGF0dGFjaG1lbnQuCg==
+
+--mirage-mixed-related--

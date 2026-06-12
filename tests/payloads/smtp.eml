@@ -1,0 +1,9 @@
+Date: Tue, 09 Jun 2026 08:15:00 +0000
+Message-ID: <smtp-fixture-001@example.com>
+From: SMTP Sender <smtp-sender@example.com>
+To: SMTP User <smtp-user@example.com>
+Subject: Integration: SMTP capture
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+This message was delivered through Mirage SMTP.

@@ -1,0 +1,27 @@
+Date: Tue, 09 Jun 2026 09:30:00 +0000
+Message-ID: <nested-alternative-fixture-001@example.com>
+From: MIME Sender <mime-sender@example.com>
+To: MIME User <mime-user@example.com>
+Subject: Integration: nested MIME alternative
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary=mixed-boundary
+
+--mixed-boundary
+Content-Type: multipart/alternative; boundary=alt-boundary
+
+--alt-boundary
+Content-Type: text/plain; charset=utf-8
+
+Plain text from nested MIME payload.
+--alt-boundary
+Content-Type: text/html; charset=utf-8
+
+<h1>Nested MIME</h1><p>HTML from nested MIME payload.</p>
+--alt-boundary--
+
+--mixed-boundary
+Content-Type: text/plain; name=notes.txt
+Content-Disposition: attachment; filename=notes.txt
+
+Attachment body from nested MIME payload.
+--mixed-boundary--
