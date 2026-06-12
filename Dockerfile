@@ -10,7 +10,7 @@ COPY internal ./internal
 ENV CGO_ENABLED=0
 RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/mirage ./cmd/mirage
 
-FROM alpine:3.22
+FROM alpine:3
 
 LABEL org.opencontainers.image.title="Mirage"
 LABEL org.opencontainers.image.description="Mirage is a local email capture service for testing SMTP and Mailgun-compatible integrations."
